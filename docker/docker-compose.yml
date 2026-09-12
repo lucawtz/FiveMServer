@@ -1,0 +1,74 @@
+# Docker Compose fuer FXServer + MariaDB.
+#
+# Start (aus dem Projektordner; --env-file ist noetig, weil Compose die .env sonst
+# neben der Compose-Datei in docker/ sucht):
+#   cp .env.example .env            # Werte eintragen
+#   sudo chown -R 1000:1000 server-data   # Container laeuft als uid 1000
+#   docker compose --env-file .env -f docker/docker-compose.yml up -d --build
+#   docker compose --env-file .env -f docker/docker-compose.yml logs -f fxserver   # txAdmin-PIN
+#
+# txAdmin ist nur auf 127.0.0.1:40120 des Hosts erreichbar (SSH-Tunnel nutzen).
+# Die Basis-Ressourcen musst du einmal auf dem Host installieren:
+#   scripts/linux/install-resources.sh
+
+services:
+  fxserver:
+    # FXServer gibt es fuer Linux nur als x86_64. Auf arm64-Hosts (Apple Silicon, ARM-VPS)
+    # laeuft das Image per Emulation, ohne Pin gaebe es "exec format error".
+    platform: linux/amd64
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        FX_CHANNEL: ${FX_CHANNEL:-recommended}
+    image: fivem-fxserver:local
+    container_name: fxserver
+    restart: unless-stopped
+    # Nur die vier Werte, die entrypoint.sh fuer secrets.cfg braucht, nicht die komplette
+    # .env: das MariaDB-Root-Passwort hat im Spiel-Container nichts verloren.
+    environment:
+      FIVEM_LICENSE_KEY: ${FIVEM_LICENSE_KEY:-}
+      RCON_PASSWORD: ${RCON_PASSWORD:-}
+      STEAM_WEBAPI_KEY: ${STEAM_WEBAPI_KEY:-}
+      MYSQL_CONNECTION_STRING: ${MYSQL_CONNECTION_STRING:-}
+    ports:
+      - "30120:30120/tcp"
+      - "30120:30120/udp"
+      - "127.0.0.1:40120:40120/tcp"
+    volumes:
+      # Bind-Mount: muss auf dem Host uid 1000 gehoeren (chown -R 1000:1000 server-data)
+      - ../server-data:/server-data
+      # Benanntes Volume fuer das txAdmin-Profil (Admins, Einstellungen, Logs)
+      - txdata:/txData
+    depends_on:
+      db:
+        condition: service_healthy
+    stop_grace_period: 30s
+
+  db:
+    image: mariadb:11
+    container_name: fxserver-db
+    restart: unless-stopped
+    # Nur die vier DB-Variablen aus der .env, nicht die komplette Datei: Lizenz-Key,
+    # RCON- und Steam-Key haben im Datenbank-Container nichts verloren.
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD fehlt in .env}
+      MARIADB_DATABASE: ${MYSQL_DATABASE:-fivem}
+      MARIADB_USER: ${MYSQL_USER:-fivem}
+      MARIADB_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD fehlt in .env}
+    volumes:
+      - dbdata:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      start_period: 10s
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    # Standardmaessig nicht nach aussen freigegeben. Fuer HeidiSQL & Co. per SSH-Tunnel
+    # oder folgende Zeilen einkommentieren (nur lokal binden!):
+    # ports:
+    #   - "127.0.0.1:3306:3306"
+
+volumes:
+  txdata:
+  dbdata:

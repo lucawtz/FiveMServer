@@ -1,0 +1,148 @@
+# CI: prueft die Skripte und Lua-Dateien bei jedem Push und Pull Request.
+#   shell      -> shellcheck + bash -n fuer scripts/linux/*.sh und docker/entrypoint.sh
+#   powershell -> Parser (Windows PowerShell 5.1) + PSScriptAnalyzer (Severity Error sowie
+#                 Kompatibilitaetsregeln PSUseCompatibleSyntax/PSUseCompatibleCommands fuer 5.1) fuer scripts/windows/*.ps1
+#   lua        -> luac5.4 -p fuer alle .lua unter server-data/resources/[local]
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  shell:
+    name: Shell (shellcheck, bash -n)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: shellcheck installieren
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq shellcheck
+
+      - name: shellcheck
+        run: shellcheck scripts/linux/*.sh docker/entrypoint.sh
+
+      - name: bash -n
+        shell: bash
+        run: |
+          set -euo pipefail
+          for f in scripts/linux/*.sh docker/entrypoint.sh; do
+            echo "bash -n $f"
+            bash -n "$f"
+          done
+
+      - name: Encoding pruefen (Batch = ASCII, PowerShell = UTF-8 mit BOM, Shell = LF)
+        shell: bash
+        run: |
+          set -euo pipefail
+          rc=0
+          for f in scripts/windows/*.bat; do
+            if LC_ALL=C grep -nP '[^\x00-\x7F]' "$f"; then
+              echo "::error file=$f::Batch-Datei enthaelt Nicht-ASCII-Zeichen"
+              rc=1
+            fi
+          done
+          for f in scripts/windows/*.ps1; do
+            if [ "$(head -c 3 "$f" | od -An -tx1 | tr -d ' \n')" != "efbbbf" ]; then
+              echo "::error file=$f::PowerShell-Datei hat kein UTF-8-BOM"
+              rc=1
+            fi
+          done
+          for f in scripts/linux/*.sh docker/entrypoint.sh; do
+            if grep -q $'\r' "$f"; then
+              echo "::error file=$f::Shell-Skript enthaelt CRLF-Zeilenenden"
+              rc=1
+            fi
+          done
+          exit "$rc"
+
+  powershell:
+    name: PowerShell (Parser 5.1, PSScriptAnalyzer)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Syntax mit dem Windows-PowerShell-5.1-Parser pruefen
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $files = @(Get-ChildItem -Path 'scripts\windows' -Filter '*.ps1' -Recurse -File)
+          if ($files.Count -eq 0) { throw 'Keine .ps1-Dateien gefunden.' }
+          $failed = $false
+          foreach ($f in $files) {
+            # Repo-relativer Pfad mit /, sonst haengt GitHub die Annotation nicht an die Datei.
+            $rel = $f.FullName.Substring($PWD.Path.Length + 1) -replace '\\', '/'
+            $tokens = $null
+            $errors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile($f.FullName, [ref]$tokens, [ref]$errors)
+            if ($errors -and $errors.Count -gt 0) {
+              $failed = $true
+              foreach ($e in $errors) {
+                Write-Host "::error file=$rel,line=$($e.Extent.StartLineNumber)::$($e.Message)"
+              }
+            } else {
+              Write-Host "OK: $rel"
+            }
+          }
+          if ($failed) { exit 1 }
+
+      - name: PSScriptAnalyzer (Severity Error + Kompatibilitaet mit PowerShell 5.1)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (-not (Get-Module -ListAvailable -Name PSScriptAnalyzer)) {
+            Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser -Repository PSGallery
+          }
+          Import-Module PSScriptAnalyzer
+          $results = @(Invoke-ScriptAnalyzer -Path 'scripts/windows' -Recurse -Severity Error)
+          # Der 5.1-Parser oben faengt nur Syntax ab (ternary, ??). Cmdlet-Parameter, die es erst in
+          # PowerShell 7 gibt (z. B. Join-Path -AdditionalChildPath), findet nur die Kompatibilitaetsregel.
+          # Profil: Windows Server 2019 mit Windows PowerShell 5.1 (wird mit PSScriptAnalyzer ausgeliefert).
+          $compat = @{
+            IncludeRules = @('PSUseCompatibleSyntax', 'PSUseCompatibleCommands')
+            Rules = @{
+              PSUseCompatibleSyntax   = @{ Enable = $true; TargetVersions = @('5.1', '7.0') }
+              PSUseCompatibleCommands = @{ Enable = $true; TargetProfiles = @('win-8_x64_10.0.17763.0_5.1.17763.316_x64_4.0.30319.42000_framework') }
+            }
+          }
+          $results += @(Invoke-ScriptAnalyzer -Path 'scripts/windows' -Recurse -Settings $compat)
+          if ($results.Count -gt 0) {
+            $results | Format-Table -AutoSize | Out-String -Width 200 | Write-Host
+            foreach ($r in $results) {
+              # Repo-relativer Pfad mit /, sonst haengt GitHub die Annotation nicht an die Datei.
+              $rel = $r.ScriptPath.Substring($PWD.Path.Length + 1) -replace '\\', '/'
+              Write-Host "::error file=$rel,line=$($r.Line)::$($r.RuleName): $($r.Message)"
+            }
+            exit 1
+          }
+          Write-Host 'PSScriptAnalyzer: keine Fehler.'
+
+  lua:
+    name: Lua (luac5.4 -p)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: lua5.4 installieren
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq lua5.4
+
+      - name: Syntax aller .lua unter [local] pruefen
+        shell: bash
+        run: |
+          set -euo pipefail
+          found=0
+          while IFS= read -r -d '' f; do
+            found=1
+            echo "luac5.4 -p $f"
+            luac5.4 -p "$f"
+          done < <(find 'server-data/resources/[local]' -type f -name '*.lua' -print0)
+          if [ "$found" -eq 0 ]; then
+            echo "Keine Lua-Dateien gefunden."
+          fi

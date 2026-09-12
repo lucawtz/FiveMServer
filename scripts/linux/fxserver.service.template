@@ -1,0 +1,40 @@
+# systemd-Unit fuer den FiveM-Server (FXServer + txAdmin).
+# Vorlage: scripts/linux/install.sh ersetzt __ROOT__ und __USER__
+# und schreibt das Ergebnis nach /etc/systemd/system/fxserver.service.
+#
+# Steuerung:   systemctl start|stop|restart|status fxserver
+# Logs:        journalctl -fu fxserver   (dort steht beim ersten Start die txAdmin-PIN)
+# txAdmin:     lauscht auf 0.0.0.0:40120. Der Port bleibt per Firewall (ufw) zu,
+#              Zugriff per SSH-Tunnel: ssh -L 40120:127.0.0.1:40120 root@<server>
+#
+# Achtung: '+set txAdminInterface 127.0.0.1' NICHT setzen. txAdmin 8.x verlangt dann
+# dieselbe Schnittstelle auch fuer endpoint_add_tcp/udp in server.cfg (dort 0.0.0.0)
+# und startet den Server sonst nicht ("error(s) in your config file(s)").
+#
+# txData-Pfad und txAdmin-Port kommen als TXHOST_*-Umgebungsvariablen (wie in
+# scripts/windows/start.bat). Die alten ConVars txDataPath/txAdminPort gelten
+# laut txAdmin als veraltet und werden in einem kommenden Update entfernt.
+
+[Unit]
+Description=FiveM FXServer (txAdmin)
+After=network-online.target mariadb.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__USER__
+WorkingDirectory=__ROOT__/server-data
+Environment=TXHOST_DATA_PATH=__ROOT__/txData
+Environment=TXHOST_TXA_PORT=40120
+ExecStart=__ROOT__/artifacts/run.sh
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+KillSignal=SIGTERM
+LimitNOFILE=65535
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=fxserver
+
+[Install]
+WantedBy=multi-user.target

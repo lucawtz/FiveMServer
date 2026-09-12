@@ -1,0 +1,55 @@
+# Zeilenenden pro Dateityp erzwingen, damit Windows und Linux dieselben
+# Dateien sehen (Bash-Skripte brauchen LF, Batch/PowerShell brauchen CRLF).
+* text=auto
+
+# Linux / plattformneutral: LF
+*.sh          text eol=lf
+*.cfg         text eol=lf
+*.lua         text eol=lf
+*.md          text eol=lf
+*.txt         text eol=lf
+*.yml         text eol=lf
+*.yaml        text eol=lf
+*.json        text eol=lf
+*.template    text eol=lf
+*.service     text eol=lf
+Dockerfile    text eol=lf
+.gitignore    text eol=lf
+.gitattributes text eol=lf
+.editorconfig text eol=lf
+.env.example  text eol=lf
+*.example     text eol=lf
+
+# Windows: CRLF
+*.bat         text eol=crlf
+*.cmd         text eol=crlf
+*.ps1         text eol=crlf
+
+# Binärdateien (Bilder, Audio, GTA-Assets, Archive, Programme)
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.webp  binary
+*.ico   binary
+*.ogg   binary
+*.mp3   binary
+*.wav   binary
+*.ytd   binary
+*.ydr   binary
+*.yft   binary
+*.ymap  binary
+*.ytyp  binary
+*.ydd   binary
+*.ybn   binary
+*.ycd   binary
+*.ymt   binary
+*.ynv   binary
+*.rpf   binary
+*.gfx   binary
+*.dll   binary
+*.exe   binary
+*.7z    binary
+*.zip   binary
+*.xz    binary
+*.gz    binary

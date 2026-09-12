@@ -1,0 +1,5 @@
+# Build-Kontext ist der Projektordner (docker-compose.yml: context ..).
+# Nur docker/entrypoint.sh wird ins Image kopiert; alles andere bleibt draussen
+# (Artifacts, txData, Git-Historie und vor allem secrets.cfg / .env).
+*
+!docker/entrypoint.sh

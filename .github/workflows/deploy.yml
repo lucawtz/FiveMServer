@@ -1,0 +1,122 @@
+# Deploy: verbindet sich per SSH mit dem Linux-Server und fuehrt dort
+#   cd <DEPLOY_PATH> && bash scripts/linux/deploy.sh [--update-artifacts --channel <kanal>]
+# aus (git pull --ff-only, install-resources.sh --update, optional Artifacts, systemctl restart fxserver).
+#
+# Benoetigte Secrets (Settings -> Secrets and variables -> Actions):
+#   DEPLOY_HOST      IP oder Hostname des Servers
+#   DEPLOY_USER      SSH-User, empfohlen der Service-User "fivem"
+#   DEPLOY_SSH_KEY   privater SSH-Schluessel (kompletter Inhalt)
+#   DEPLOY_PATH      Repo-Pfad auf dem Server, z. B. /opt/fivem
+#   DEPLOY_PORT      optional, SSH-Port (Standard 22)
+#   DEPLOY_KNOWN_HOSTS  optional, Host-Key des Servers im known_hosts-Format (Ausgabe von
+#                    "ssh-keyscan -p <port> -H <host>"); wenn gesetzt, wird nicht per ssh-keyscan gescannt
+#
+# Details: docs/linux-server.md, Abschnitt "Deploy per GitHub Actions".
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      update_artifacts:
+        description: 'FXServer-Artifacts ebenfalls aktualisieren (update-artifacts.sh)'
+        type: boolean
+        default: false
+      channel:
+        description: 'Artifact-Kanal fuer --update-artifacts'
+        type: choice
+        options:
+          - recommended
+          - latest
+          - optional
+        default: recommended
+  # Automatisch bei jedem Push auf main deployen: die beiden folgenden Zeilen einkommentieren.
+  # push:
+  #   branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: deploy.sh per SSH
+    runs-on: ubuntu-latest
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || '22' }}
+    steps:
+      - name: Secrets pruefen
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${DEPLOY_HOST:?Secret DEPLOY_HOST fehlt}"
+          : "${DEPLOY_USER:?Secret DEPLOY_USER fehlt}"
+          : "${DEPLOY_PATH:?Secret DEPLOY_PATH fehlt}"
+          if [ -z "${DEPLOY_SSH_KEY:-}" ]; then
+            echo "::error::Secret DEPLOY_SSH_KEY fehlt"
+            exit 1
+          fi
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+
+      - name: SSH-Schluessel und known_hosts einrichten
+        shell: bash
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          if [ -n "${DEPLOY_KNOWN_HOSTS:-}" ]; then
+            # Gepinnter Host-Key aus dem Secret, kein ssh-keyscan noetig.
+            printf '%s\n' "$DEPLOY_KNOWN_HOSTS" >> ~/.ssh/known_hosts
+            echo "Host-Key aus Secret DEPLOY_KNOWN_HOSTS uebernommen."
+          else
+            # Ohne Secret wird der Host-Key bei jedem Lauf frisch gescannt (Runner sind Wegwerf-Maschinen).
+            # -T 10: nicht ewig auf gefilterte Ports warten; || true: Fehler unten sauber melden.
+            ssh-keyscan -T 10 -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+          fi
+          chmod 600 ~/.ssh/known_hosts
+          if ! grep -q . ~/.ssh/known_hosts; then
+            echo "::error::ssh-keyscan konnte keinen Host-Key von $DEPLOY_HOST:$DEPLOY_PORT holen (Host erreichbar? Port richtig? Alternativ Secret DEPLOY_KNOWN_HOSTS setzen)"
+            exit 1
+          fi
+
+      - name: deploy.sh auf dem Server ausfuehren
+        shell: bash
+        env:
+          UPDATE_ARTIFACTS: ${{ inputs.update_artifacts }}
+          CHANNEL: ${{ inputs.channel }}
+        run: |
+          set -euo pipefail
+          args=""
+          if [ "${UPDATE_ARTIFACTS:-false}" = "true" ]; then
+            args="--update-artifacts --channel ${CHANNEL:-recommended}"
+          fi
+          # ServerAliveInterval/CountMax: eine haengende Verbindung bricht nach ca. 3 Minuten ab,
+          # statt bis zum 6-Stunden-Limit des Jobs zu laufen.
+          # Host, User und Pfad sind Secrets: GitHub wuerde sie hier maskieren und danach jedes Vorkommen
+          # (z. B. "fivem") im gesamten Log durch *** ersetzen. Deshalb nur Port und Argumente ausgeben.
+          echo "Deploy startet (SSH-Port ${DEPLOY_PORT}) ${args}"
+          ssh -i ~/.ssh/deploy_key \
+              -p "$DEPLOY_PORT" \
+              -o BatchMode=yes \
+              -o StrictHostKeyChecking=yes \
+              -o ConnectTimeout=30 \
+              -o ServerAliveInterval=30 \
+              -o ServerAliveCountMax=6 \
+              "${DEPLOY_USER}@${DEPLOY_HOST}" \
+              "cd '${DEPLOY_PATH}' && bash scripts/linux/deploy.sh ${args}"
+
+      - name: SSH-Schluessel entfernen
+        if: always()
+        shell: bash
+        run: rm -f ~/.ssh/deploy_key

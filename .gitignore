@@ -1,0 +1,44 @@
+# ============================================================================
+#  .gitignore - was NICHT ins Repo gehört
+# ============================================================================
+
+# Einträge mit führendem '/' gelten nur im Repo-Root, damit gleichnamige Ordner
+# in eigenen Ressourcen (z. B. [local]/mein-script/tools/) nicht verschwinden.
+
+# --- Geheimnisse ------------------------------------------------------------
+/server-data/secrets.cfg
+/.env
+/.env.*
+!/.env.example
+
+# --- Server-Binaries und Werkzeuge (werden von den Skripten geladen) ---------
+/artifacts/
+/artifacts.bak/
+/tools/
+server.7z
+server.zip
+fx.tar.xz
+
+# --- txAdmin-Profil, Logs, Datenbank von txAdmin -----------------------------
+/txData/
+# Zwischenlager von install.ps1 fuer ein verirrtes artifacts\txData (bleibt nach
+# einem abgebrochenen Lauf liegen, enthaelt ebenfalls txAdmin-Daten)
+/artifacts.txData.tmp/
+
+# --- Installierte Ressourcen (Basis + Fremd), nur resources.txt wird committet
+# Eckige Klammern sind in .gitignore Zeichenklassen, deshalb escaped.
+/server-data/resources/\[cfx-default\]/
+/server-data/resources/\[vendor\]/
+
+# --- Laufzeit-Dateien von FXServer -------------------------------------------
+/server-data/cache/
+/server-data/db/
+*.log
+
+# --- Betriebssystem / Editoren -------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/*
+!.vscode/extensions.json

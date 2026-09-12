@@ -1,0 +1,108 @@
+# ============================================================================
+#  resources.txt - Manifest für Fremd-Ressourcen (Third Party)
+# ============================================================================
+#
+#  Wird von scripts/windows/install-resources.ps1 und scripts/linux/
+#  install-resources.sh gelesen. Alles hier landet unter server-data/resources/.
+#
+#  Format (ein Eintrag pro Zeile, Felder durch Leerzeichen getrennt):
+#
+#    git <ziel> <git-url> [ref]
+#        git clone --depth 1 [--branch ref] nach server-data/resources/<ziel>
+#        Mit --update / -Update: 'git pull --ff-only', falls <ziel> ein Git-Repo ist.
+#
+#    zip <ziel> <url>
+#        Archiv herunterladen und entpacken. Hat das Archiv genau EINEN
+#        Ordner auf oberster Ebene, wird dessen INHALT zu <ziel> (so sind die
+#        Release-Zips von oxmysql und ox_lib gebaut). Sonst landet alles
+#        direkt in <ziel>.
+#
+#  <ziel> ist relativ zu server-data/resources/ und darf Kategorie-Ordner in
+#  eckigen Klammern enthalten, z. B. [vendor]/oxmysql. FXServer durchsucht
+#  Klammer-Ordner rekursiv, der Ressourcenname ist immer der letzte Ordnername.
+#
+#  Regeln:
+#    - Zeilen, die mit '#' beginnen, und Leerzeilen werden ignoriert.
+#    - Vorhandene Ziele werden übersprungen, außer mit --update / -Update
+#      (nur git) oder --force / -Force (neu herunterladen bzw. neu klonen).
+#    - Alles unter [vendor]/ und [cfx-default]/ ist in .gitignore, nur diese
+#      Manifest-Datei wird committet.
+#    - Nach der Installation die passenden 'ensure'-Zeilen in server.cfg
+#      einkommentieren. Reihenfolge: oxmysql -> ox_lib -> Framework.
+#
+#  Zum Aktivieren eines Blocks einfach das führende '#' entfernen.
+# ============================================================================
+
+
+# ----------------------------------------------------------------------------
+#  Datenbank-Anbindung: oxmysql (Release-Zip, enthält Ordner "oxmysql/")
+#  Braucht 'set mysql_connection_string ...' in secrets.cfg und FXServer >= 12913.
+#  Stellt auch 'mysql-async' und 'ghmattimysql' bereit.
+# ----------------------------------------------------------------------------
+#zip [vendor]/oxmysql https://github.com/overextended/oxmysql/releases/latest/download/oxmysql.zip
+
+# ----------------------------------------------------------------------------
+#  Bibliothek: ox_lib (Release-Zip, enthält Ordner "ox_lib/")
+#  Braucht OneSync (txAdmin: Standard an, Direkt-Modus: Startargument '+set onesync on').
+#  Pflicht für Qbox, optional für ESX/QBCore.
+# ----------------------------------------------------------------------------
+#zip [vendor]/ox_lib https://github.com/overextended/ox_lib/releases/latest/download/ox_lib.zip
+
+# ----------------------------------------------------------------------------
+#  Sprachchat: pma-voice (empfohlen, wird von allen drei Frameworks genutzt)
+# ----------------------------------------------------------------------------
+#git [vendor]/pma-voice https://github.com/AvarianKnight/pma-voice.git
+
+
+# ============================================================================
+#  Frameworks: nur EINES auswählen. Alle brauchen oxmysql und eine MariaDB.
+#  Schritt-für-Schritt-Anleitung inkl. SQL-Import: docs/frameworks.md
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+#  ESX Legacy (esx-framework/esx_core, Branch main, Version 1.15.x)
+#  Das Repo hat keine Release-Assets, deshalb wird es komplett geklont. Die
+#  eigentlichen Ressourcen liegen darin unter [core]/ (es_extended, esx_lib,
+#  esx_menu_*, ...). Weitere Ordner wie [SQL]/ oder .github/ ignoriert FXServer.
+#  Danach: SQL importieren aus [vendor]/[esx]/[SQL]/legacy.sql
+#          (legt KEINE Datenbank an, die Datenbank "fivem" muss existieren)
+#  server.cfg: ensure oxmysql, ensure esx_lib, ensure es_extended, ensure [core]
+# ----------------------------------------------------------------------------
+#git [vendor]/[esx] https://github.com/esx-framework/esx_core.git main
+
+# ----------------------------------------------------------------------------
+#  QBCore (Organisation ist nach github.com/qbcore-fivem umgezogen)
+#  Es gibt keine offizielle Minimal-Liste; das offizielle txAdmin-Rezept
+#  installiert rund 60 qb-* Ressourcen. Unten ein kleiner Startsatz, weitere
+#  Repos nach demselben Muster ergänzen. qb-core braucht kein ox_lib.
+#  Danach: SQL importieren aus [vendor]/[qb]/qb-core/qbcore.sql
+#  server.cfg: ensure oxmysql, ensure qb-core, ensure [qb]
+#              plus: setr qb_locale "de"   und   setr UseTarget false
+# ----------------------------------------------------------------------------
+#git [vendor]/[qb]/qb-core https://github.com/qbcore-fivem/qb-core.git main
+#git [vendor]/[qb]/qb-multicharacter https://github.com/qbcore-fivem/qb-multicharacter.git main
+#git [vendor]/[qb]/qb-spawn https://github.com/qbcore-fivem/qb-spawn.git main
+#git [vendor]/[qb]/qb-apartments https://github.com/qbcore-fivem/qb-apartments.git main
+#git [vendor]/[qb]/qb-clothing https://github.com/qbcore-fivem/qb-clothing.git main
+#git [vendor]/[qb]/qb-weathersync https://github.com/qbcore-fivem/qb-weathersync.git main
+#git [vendor]/[qb]/qb-smallresources https://github.com/qbcore-fivem/qb-smallresources.git main
+#git [vendor]/[qb]/qb-inventory https://github.com/qbcore-fivem/qb-inventory.git main
+#git [vendor]/[qb]/qb-target https://github.com/qbcore-fivem/qb-target.git main
+#git [vendor]/[qb]/qb-menu https://github.com/qbcore-fivem/qb-menu.git main
+#git [vendor]/[qb]/qb-input https://github.com/qbcore-fivem/qb-input.git main
+#git [vendor]/[qb]/qb-hud https://github.com/qbcore-fivem/qb-hud.git main
+
+# ----------------------------------------------------------------------------
+#  Qbox (Qbox-project/qbx_core)
+#  Braucht zwingend ox_lib UND oxmysql (beide Blöcke oben aktivieren),
+#  OneSync und FXServer >= 10731. MariaDB mindestens 10.9.
+#  Das offizielle Rezept nutzt außerdem ox_target, ox_inventory und viele
+#  qbx_* Ressourcen, siehe docs/frameworks.md.
+#  Danach: SQL importieren aus [vendor]/[qbx]/qbx_core/qbx_core.sql
+#  server.cfg: ensure oxmysql, ensure ox_lib, ensure qbx_core, ensure ox_target,
+#              ensure ox_inventory, ensure [qbx]
+#              plus: setr qb_locale "de"   und   setr ox:locale "de"
+# ----------------------------------------------------------------------------
+#zip [vendor]/ox_target https://github.com/overextended/ox_target/releases/latest/download/ox_target.zip
+#zip [vendor]/ox_inventory https://github.com/overextended/ox_inventory/releases/latest/download/ox_inventory.zip
+#git [vendor]/[qbx]/qbx_core https://github.com/Qbox-project/qbx_core.git main
