@@ -38,6 +38,22 @@ if not exist "%DATA%\secrets.cfg" (
     exit /b 1
 )
 
+if not exist "%ROOT%\artifacts\VERSION.txt" (
+    echo [WARNUNG] artifacts\VERSION.txt fehlt. Die Artifacts sind vermutlich unvollstaendig,
+    echo           zum Beispiel nach einem abgebrochenen Entpacken. Bitte scripts\windows\install.bat
+    echo           erneut ausfuehren, es laedt die Artifacts dann neu.
+    echo.
+)
+
+if not exist "%ROOT%\server-data\resources\[cfx-default]\[managers]\spawnmanager\fxmanifest.lua" (
+    echo [WARNUNG] Die Basis-Ressourcen aus cfx-server-data fehlen, zum Beispiel spawnmanager.
+    echo           Der Server startet, aber im Spiel spawnt niemand. Bitte scripts\windows\install.bat
+    echo           ohne -SkipResources ausfuehren.
+    echo           Trotzdem starten: beliebige Taste. Abbrechen: Fenster schliessen.
+    echo.
+    pause
+)
+
 findstr /I /R /C:"^[ ]*sv_licenseKey.*changeme" /C:"^[ ]*set[ ][ ]*sv_licenseKey.*changeme" "%DATA%\secrets.cfg" >nul 2>&1
 if not errorlevel 1 (
     echo [WARNUNG] In server-data\secrets.cfg steht sv_licenseKey noch auf "changeme".
@@ -52,6 +68,8 @@ echo  FiveM Server (Direktmodus, ohne txAdmin)
 echo  Arbeitsverzeichnis: %DATA%
 echo  Verbinden im Spiel:  F8 druecken, dann: connect localhost:30120
 echo  Beenden: Strg+C oder in der Serverkonsole "quit" eingeben
+echo  Hinweis: Nicht mit der Maus ins Fenster klicken. Eine Markierung haelt den Server
+echo           an, bis du Esc drueckst.
 echo.
 
 "%ROOT%\artifacts\FXServer.exe" +set onesync on +exec server.cfg

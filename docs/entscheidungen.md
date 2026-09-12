@@ -59,13 +59,27 @@ und soll nicht nebenbei den Server austauschen. Ein Update gibt es nur ausdrück
 (API abfragen, nur bei anderer Version laden) oder `-ForceArtifacts` (immer neu). `-ForceResources` gibt es
 analog für die Ressourcen.
 
+**`VERSION.txt` markiert eine vollständige Artifact-Installation.** Als installiert gelten die Artifacts nur,
+wenn neben `FXServer.exe` (Windows) bzw. `run.sh` (Linux) auch `artifacts/VERSION.txt` liegt. Die Datei wird
+erst nach erfolgreichem Entpacken geschrieben, unter Windows außerdem vor dem Leeren des Ordners gelöscht. Der
+Grund: Im Windows-Archiv steht `FXServer.exe` vor `libnode22.dll` und der VC-Runtime. Nach einem abgebrochenen
+Entpacken läge die Exe also schon da, der Server wäre aber nicht startfähig, und ein reiner Test auf die Exe
+würde den nächsten Download überspringen. Fehlt `VERSION.txt`, laden `install.bat` und `update-artifacts.sh`
+neu, `start.bat` und `start-direct.bat` warnen.
+
+**Basis-Ressourcen werden geprüft, nicht nur installiert.** `server.cfg` startet `mapmanager`, `spawnmanager`
+und `basic-gamemode` aus `[cfx-default]`. Fehlen sie, fährt der Server trotzdem hoch, aber niemand spawnt.
+`install.ps1` prüft deshalb nach dem Ressourcen-Schritt, auch mit `-SkipResources`, ob die drei Manifeste da
+sind, und endet sonst mit Exit 2. `start.bat` und `start-direct.bat` warnen und warten auf eine Taste.
+
 ## Linux
 
 **`update-artifacts.sh` ohne Optionen ist ein Update-Lauf.** Auf dem VPS wird das Skript nur von `install.sh`
-(mit `--if-missing`, lädt nur, wenn `run.sh` fehlt) und von `deploy.sh --update-artifacts` aufgerufen, also
-immer dann, wenn du ein Update willst. Ohne Optionen fragt es deshalb die Changelog-API ab und lädt neu, wenn
-sich die Build-Nummer von `artifacts/VERSION.txt` unterscheidet, sonst `[OK] Artifacts sind aktuell`.
-`--force` lädt immer. Die vorherige Version bleibt in `artifacts.bak`.
+(mit `--if-missing`, lädt nur, wenn `run.sh` oder `VERSION.txt` fehlt) und von `deploy.sh --update-artifacts`
+aufgerufen, also immer dann, wenn du ein Update willst. Ohne Optionen fragt es deshalb die Changelog-API ab und
+lädt neu, wenn `run.sh` oder `VERSION.txt` fehlt oder sich die Build-Nummer von `artifacts/VERSION.txt`
+unterscheidet, sonst `[OK] Artifacts sind aktuell`. `--force` lädt immer. Eine vollständige vorherige Version
+bleibt in `artifacts.bak`. Ein unvollständiger Ordner wird nicht gesichert, damit er keine intakte Sicherung ersetzt.
 
 **`deploy.sh` nutzt `git pull --ff-only --autostash` und bricht bei Konflikten ab.** `--ff-only` verhindert
 Merge-Commits auf dem Server, `--autostash` legt lokale Änderungen an versionierten Dateien (typisch: txAdmin

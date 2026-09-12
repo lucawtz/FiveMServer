@@ -17,6 +17,22 @@ if not exist "%ROOT%\artifacts\FXServer.exe" (
     exit /b 1
 )
 
+if not exist "%ROOT%\artifacts\VERSION.txt" (
+    echo [WARNUNG] artifacts\VERSION.txt fehlt. Die Artifacts sind vermutlich unvollstaendig,
+    echo           zum Beispiel nach einem abgebrochenen Entpacken. Bitte scripts\windows\install.bat
+    echo           erneut ausfuehren, es laedt die Artifacts dann neu.
+    echo.
+)
+
+if not exist "%ROOT%\server-data\resources\[cfx-default]\[managers]\spawnmanager\fxmanifest.lua" (
+    echo [WARNUNG] Die Basis-Ressourcen aus cfx-server-data fehlen, zum Beispiel spawnmanager.
+    echo           Der Server startet, aber im Spiel spawnt niemand. Bitte scripts\windows\install.bat
+    echo           ohne -SkipResources ausfuehren.
+    echo           Trotzdem starten: beliebige Taste. Abbrechen: Fenster schliessen.
+    echo.
+    pause
+)
+
 if not exist "%ROOT%\server-data\secrets.cfg" (
     echo [WARNUNG] server-data\secrets.cfg fehlt. Bitte secrets.cfg.example nach secrets.cfg kopieren
     echo           und den Lizenzschluessel eintragen. txAdmin startet trotzdem, der Spielserver
@@ -36,6 +52,8 @@ echo  FiveM Server (txAdmin-Modus)
 echo  Repo:    %ROOT%
 echo  txData:  %ROOT%\txData
 echo  txAdmin: http://localhost:40120   (PIN erscheint gleich hier in der Konsole)
+echo  Hinweis: PIN abtippen, nicht mit der Maus markieren. Ein Klick ins Fenster haelt
+echo           den Server an, bis du Esc drueckst.
 echo  Beenden: Strg+C oder Fenster schliessen
 echo.
 

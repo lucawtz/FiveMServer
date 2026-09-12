@@ -211,9 +211,16 @@ write_version_file() {
     } > "$1/VERSION.txt"
 }
 
+artifacts_complete() {
+    # artifacts_complete <ordner>: true, wenn run.sh UND VERSION.txt vorhanden sind.
+    # VERSION.txt wird erst nach dem vollstaendigen Entpacken geschrieben, ein abgebrochener
+    # Lauf (Strg+C, getrennte SSH-Sitzung) hinterlaesst also einen Ordner ohne VERSION.txt.
+    [ -f "$1/run.sh" ] && [ -f "$1/VERSION.txt" ]
+}
+
 download_artifacts() {
     # download_artifacts <channel> <force 0|1> [update 0|1]
-    #   force=0, update=0 : nur laden, wenn artifacts/run.sh fehlt
+    #   force=0, update=0 : nur laden, wenn artifacts/run.sh oder artifacts/VERSION.txt fehlt
     #   update=1          : laden, wenn die API eine andere Version meldet
     #   force=1           : immer neu laden
     local channel="${1:-recommended}" force="${2:-0}" update="${3:-0}"
@@ -223,7 +230,11 @@ download_artifacts() {
     art="$root/artifacts"
     bak="$root/artifacts.bak"
 
-    if [ -f "$art/run.sh" ] && [ "$force" != "1" ] && [ "$update" != "1" ]; then
+    if [ -f "$art/run.sh" ] && [ ! -f "$art/VERSION.txt" ]; then
+        log_warn "artifacts/run.sh ist vorhanden, aber artifacts/VERSION.txt fehlt. Die Artifacts gelten als unvollstaendig (abgebrochenes Entpacken?) und werden neu geladen."
+    fi
+
+    if artifacts_complete "$art" && [ "$force" != "1" ] && [ "$update" != "1" ]; then
         log_info "Artifacts sind bereits vorhanden ($(installed_artifact_version "$art" || true)). Ueberspringe Download."
         log_info "Zum Aktualisieren: scripts/linux/update-artifacts.sh [--channel ${channel}] [--force]"
         return 0
@@ -231,7 +242,7 @@ download_artifacts() {
 
     fetch_artifact_info "$channel"
 
-    if [ -f "$art/run.sh" ] && [ "$force" != "1" ]; then
+    if artifacts_complete "$art" && [ "$force" != "1" ]; then
         installed="$(installed_artifact_version "$art")"
         if [ -n "$installed" ] && [ "$installed" = "$ARTIFACT_VERSION" ]; then
             log_ok "Artifacts sind aktuell (Build ${installed}, Channel ${channel}). Nichts zu tun."
@@ -259,10 +270,10 @@ download_artifacts() {
     # Alte Artifacts sichern. Ein evtl. vorhandenes artifacts/txData (wenn jemand
     # run.sh direkt im artifacts-Ordner gestartet hat) wandert mit in artifacts.bak
     # und wird nach dem Entpacken wieder zurueckgeholt.
-    # Ein kaputter artifacts-Ordner (run.sh fehlt, z. B. abgebrochenes Entpacken)
-    # ersetzt keine noch intakte Sicherung: er wird entfernt, artifacts.bak bleibt.
+    # Ein kaputter artifacts-Ordner (run.sh oder VERSION.txt fehlt, z. B. abgebrochenes
+    # Entpacken) ersetzt keine noch intakte Sicherung: er wird entfernt, artifacts.bak bleibt.
     if [ -d "$art" ]; then
-        if [ -f "$art/run.sh" ]; then
+        if artifacts_complete "$art"; then
             if [ -d "$bak" ]; then
                 log_info "Entferne aeltere Sicherung artifacts.bak"
                 safe_rm_rf "$bak"
@@ -270,7 +281,7 @@ download_artifacts() {
             log_info "Verschiebe bisherige Artifacts nach artifacts.bak"
             mv "$art" "$bak"
         else
-            log_warn "artifacts/ ist unvollstaendig (run.sh fehlt) und wird entfernt. Eine vorhandene Sicherung artifacts.bak bleibt erhalten."
+            log_warn "artifacts/ ist unvollstaendig (run.sh oder VERSION.txt fehlt) und wird entfernt. Eine vorhandene Sicherung artifacts.bak bleibt erhalten."
             if [ -d "$art/txData" ]; then
                 mkdir -p "$bak"
                 if [ -d "$bak/txData" ]; then

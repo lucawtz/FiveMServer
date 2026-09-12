@@ -4,9 +4,10 @@
 #
 # Aufruf: scripts/linux/update-artifacts.sh [--channel recommended|latest|optional] [--force] [--if-missing]
 #
-# Ohne Optionen: fragt die Changelog-API ab und laedt neu, wenn noch keine Artifacts
-# vorhanden sind oder die API eine andere Build-Nummer meldet. Die bisherige Version
-# wandert nach artifacts.bak. txData wird nie angefasst.
+# Ohne Optionen: fragt die Changelog-API ab und laedt neu, wenn artifacts/run.sh oder
+# artifacts/VERSION.txt fehlt oder die API eine andere Build-Nummer meldet. Eine vollstaendige
+# bisherige Version wandert nach artifacts.bak, ein unvollstaendiger Ordner wird geloescht.
+# <repo>/txData wird nie angefasst.
 
 set -euo pipefail
 
@@ -24,7 +25,7 @@ Laedt die FXServer-Artifacts fuer Linux in <repo>/artifacts/.
 Optionen:
   --channel <name>   recommended (Standard), latest oder optional
   --force            Immer neu herunterladen, auch wenn die Version schon installiert ist
-  --if-missing       Nur herunterladen, wenn artifacts/run.sh noch fehlt (fuer install.sh)
+  --if-missing       Nur herunterladen, wenn artifacts/run.sh oder VERSION.txt fehlt (fuer install.sh)
   -h, --help         Diese Hilfe anzeigen
 
 Beispiele:

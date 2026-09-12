@@ -31,7 +31,8 @@
     (entspricht install-resources.ps1 -Force).
 
 .PARAMETER SkipResources
-    Überspringt den Ressourcen-Schritt komplett.
+    Überspringt den Ressourcen-Schritt. Nur für reine Artifact-Updates gedacht, wenn die Ressourcen schon
+    installiert sind. Die Prüfung der Basis-Ressourcen läuft trotzdem (siehe Exit-Code 2).
 
 .EXAMPLE
     .\install.ps1
@@ -43,7 +44,8 @@
     .\install.ps1 -ForceArtifacts -SkipResources
 
 .NOTES
-    Exit-Codes: 0 = alles ok, 1 = Fehler (Abbruch), 2 = fertig, aber einzelne Ressourcen-Einträge fehlgeschlagen.
+    Exit-Codes: 0 = alles ok, 1 = Fehler (Abbruch), 2 = fertig, aber Ressourcen unvollständig (einzelne
+    Manifest-Einträge fehlgeschlagen oder Basis-Ressourcen mapmanager/spawnmanager/basic-gamemode fehlen).
 #>
 [CmdletBinding()]
 param(
@@ -260,6 +262,9 @@ function Install-Artifacts($Info, [string]$ArtifactsDir, [string]$ToolsDir, [str
                 # .NET-Move statt Move-Item: -Destination wertet in PS 5.1 Wildcards aus ([ ] im Repo-Pfad)
                 [System.IO.Directory]::Move($strayTxData, $parkedTxData)
             }
+            # VERSION.txt zuerst löschen: bricht das Leeren oder Entpacken ab, gilt der Ordner danach als unvollständig.
+            $oldVersionFile = Join-Path $ArtifactsDir 'VERSION.txt'
+            if (Test-Path -LiteralPath $oldVersionFile) { Remove-Item -LiteralPath $oldVersionFile -Force -ErrorAction Stop }
             Write-Info "Leere '$ArtifactsDir' ..."
             Get-ChildItem -LiteralPath $ArtifactsDir -Force | ForEach-Object { Remove-Tree $_.FullName }
         } else {
@@ -314,6 +319,26 @@ function Install-Artifacts($Info, [string]$ArtifactsDir, [string]$ToolsDir, [str
         }
         try { Remove-Tree $tmp } catch { Write-Warn "Temporärer Ordner konnte nicht gelöscht werden: $tmp" }
     }
+}
+
+# ---------------------------------------------------------------------------
+# Basis-Ressourcen
+# ---------------------------------------------------------------------------
+# server.cfg startet diese Ressourcen aus [cfx-default]. Fehlen sie, fährt der Server hoch, aber niemand spawnt.
+$BaseResources = @(
+    @{ Name = 'mapmanager';     Path = '[managers]\mapmanager' },
+    @{ Name = 'spawnmanager';   Path = '[managers]\spawnmanager' },
+    @{ Name = 'basic-gamemode'; Path = '[gamemodes]\basic-gamemode' }
+)
+
+function Get-MissingBaseResource([string]$ResourcesDir) {
+    # .NET statt Test-Path: die Ordnernamen enthalten [Klammern], die PowerShell sonst als Wildcards liest
+    $missing = @()
+    foreach ($resource in $BaseResources) {
+        $manifest = [System.IO.Path]::Combine($ResourcesDir, '[cfx-default]', $resource.Path, 'fxmanifest.lua')
+        if (-not [System.IO.File]::Exists($manifest)) { $missing += $resource.Name }
+    }
+    return $missing
 }
 
 # ---------------------------------------------------------------------------
@@ -373,12 +398,17 @@ try {
 
     # Vorab prüfen, damit der Hinweis nicht erst nach dem Artifact-Download kommt.
     if (-not $SkipResources -and -not (Get-Command 'git' -ErrorAction SilentlyContinue)) {
-        throw "git wurde nicht gefunden, wird aber für die Ressourcen benötigt. Bitte installieren: winget install Git.Git  (danach ein neues Terminal öffnen) oder mit -SkipResources nur die Artifacts laden."
+        throw "git wurde nicht gefunden, wird aber für die Ressourcen benötigt. Bitte installieren: winget install --id Git.Git -e  (danach ein neues Terminal öffnen und install.bat erneut starten). Ohne die Ressourcen aus cfx-server-data spawnt im Spiel niemand."
     }
 
     # -----------------------------------------------------------------------
     Write-Step "Schritt 1/3: FXServer-Artifacts (Kanal: $Channel)"
-    $hasBinary = Test-Path -LiteralPath $fxServerExe
+    # Installiert heißt: FXServer.exe UND VERSION.txt. VERSION.txt entsteht erst nach dem vollständigen Entpacken,
+    # FXServer.exe steht im Archiv dagegen vor libnode22.dll und der VC-Runtime und läge nach einem Abbruch schon da.
+    $hasBinary = (Test-Path -LiteralPath $fxServerExe) -and (Test-Path -LiteralPath $versionFile)
+    if ((Test-Path -LiteralPath $fxServerExe) -and -not $hasBinary) {
+        Write-Warn "artifacts\FXServer.exe ist vorhanden, aber artifacts\VERSION.txt fehlt. Die Artifacts sind vermutlich unvollständig (z. B. abgebrochenes Entpacken) und werden neu geladen."
+    }
     $installedVersion = Get-InstalledVersion $versionFile
     $installedText = 'unbekannt'
     if ($installedVersion) { $installedText = $installedVersion }
@@ -422,6 +452,14 @@ try {
         } else {
             throw "install-resources.ps1 ist mit Exit-Code $rc fehlgeschlagen."
         }
+    }
+    $missingBase = @(Get-MissingBaseResource (Join-Path $serverDataDir 'resources'))
+    if ($missingBase.Count -gt 0) {
+        $missingText = $missingBase -join ', '
+        Write-Warn "Basis-Ressourcen fehlen in server-data\resources\[cfx-default]: $missingText. Der Server startet, aber im Spiel spawnt niemand."
+        Write-Warn "Abhilfe: install.bat ohne -SkipResources ausführen (ist [cfx-default] nicht leer, aber kaputt: install.bat -ForceResources)."
+        $resourceSummary = "unvollständig, es fehlen: $missingText"
+        $exitCode = 2
     }
 
     # -----------------------------------------------------------------------
@@ -481,9 +519,11 @@ Write-Host "     oder scripts\windows\start-direct.bat (Direktstart ohne txAdmin
 Write-Host "  3. txAdmin im Browser öffnen: http://localhost:40120  (PIN steht in der Server-Konsole)."
 Write-Host "     Beim ersten Mal in txAdmin 'Existing Server Data' wählen: Ordner $serverDataDir, CFG server.cfg."
 Write-Host "  4. Im Spiel F8 drücken und eingeben: connect localhost:30120"
+Write-Host "  Hinweis: Nicht mit der Maus ins Serverfenster klicken. Eine Markierung hält den Server an, Esc hebt sie auf."
+Write-Host "  Freunde verbinden: docs\windows-lokal.md, Abschnitt 'Freunde verbinden'."
 Write-Host ""
 if ($exitCode -eq 2) {
-    Write-Warn "Fertig, aber mit Fehlern bei einzelnen Ressourcen (Exit-Code 2)."
+    Write-Warn "Fertig, aber die Ressourcen sind unvollständig (Exit-Code 2). Bitte die Warnungen oben lesen."
 } else {
     Write-Ok "Fertig."
 }

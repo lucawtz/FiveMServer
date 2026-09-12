@@ -76,9 +76,12 @@ docs/                          Ausführliche Anleitungen (siehe unten), inkl. en
 
 2. `scripts\windows\install.bat` doppelklicken. Das Skript lädt die Artifacts (Kanal `recommended`),
    klont `cfx-server-data` nach `[cfx-default]`, verarbeitet `resources.txt` und legt
-   `server-data\secrets.cfg` aus der Vorlage an. Bei Rückfragen der Windows-Firewall später "Zulassen" wählen.
+   `server-data\secrets.cfg` aus der Vorlage an.
 3. `server-data\secrets.cfg` öffnen und `sv_licenseKey "changeme"` durch deinen Key ersetzen.
-4. `scripts\windows\start.bat` doppelklicken (txAdmin-Modus). In der Konsole erscheint eine PIN.
+4. `scripts\windows\start.bat` doppelklicken (txAdmin-Modus). In der Konsole erscheint eine PIN. Tipp sie ab und
+   klick nicht mit der Maus ins Fenster: eine Markierung hält den Server an, bis du `Esc` drückst. Fragt die
+   Windows-Firewall nach, setz den Haken beim Netzwerkprofil deines PCs
+   (siehe [Freunde verbinden](docs/windows-lokal.md#freunde-verbinden)).
 5. <http://localhost:40120> öffnen, PIN eingeben, "Link Account" mit deinem Cfx.re-Account, Passwort setzen.
 6. Im Setup "Existing Server Data" wählen: Ordner `C:\FiveMServer\server-data`, CFG-Datei `server.cfg`, speichern.
    txAdmin startet den Server. Der Lizenzschlüssel kommt aus `secrets.cfg`, txAdmin fragt bei diesem Weg nicht danach.
@@ -156,11 +159,22 @@ Vor jedem Update den Server stoppen (Windows: Konsole schließen; unter Linux er
 - **"no license key was specified" / Server startet nicht**: In `server-data/secrets.cfg` steht noch `changeme`.
   Alle Skripte warnen davor. Key im Portal erstellen und eintragen. txAdmin speichert den Key bei
   "Existing Server Data" nicht, er muss in `secrets.cfg` stehen.
-- **Freunde können nicht verbinden**: 30120/tcp und 30120/udp müssen von außen erreichbar sein. Zu Hause
-  heißt das Portweiterleitung im Router auf deinen PC plus Windows-Firewall-Freigabe für `FXServer.exe`.
-  Lokal auf demselben PC geht `connect localhost:30120` immer.
-- **Windows-Firewall fragt beim ersten Start**: "Zugriff zulassen" für private Netzwerke (öffentlich nur,
-  wenn du Spieler aus dem Internet erwartest).
+- **Freunde können nicht verbinden**: `localhost` funktioniert nur auf dem Server-PC selbst. Freunde im selben
+  Netz nutzen die IPv4-Adresse deines PCs (`ipconfig`), Freunde über das Internet deine öffentliche IPv4 plus
+  Portweiterleitung 30120 TCP und UDP im Router. Bei DS-Lite- bzw. CGNAT-Anschlüssen (in Deutschland häufig)
+  funktioniert eine IPv4-Portweiterleitung gar nicht. Test, Firewall und Auswege:
+  [docs/windows-lokal.md, Freunde verbinden](docs/windows-lokal.md#freunde-verbinden).
+- **Windows-Firewall fragt beim ersten Start**: Die Haken "Privat" und "Öffentlich" meinen das Netzwerkprofil,
+  in dem dein PC hängt, nicht die Herkunft der Spieler. Setz den Haken, der zu deinem Netz passt
+  (`Get-NetConnectionProfile` in PowerShell zeigt es). Für das nicht angehakte Profil legt Windows
+  Blockier-Regeln an, die Korrektur steht im verlinkten Abschnitt.
+- **Server oder txAdmin hängt, Fenstertitel beginnt mit "Auswählen"**: Du hast ins Konsolenfenster geklickt
+  (QuickEdit-Modus). `Esc` drücken. Dauerhaft abschalten: Rechtsklick auf die Titelleiste > Standardwerte >
+  Optionen > "QuickEdit-Modus" abwählen. Betrifft vor allem das klassische Konsolenfenster (Standard unter
+  Windows 10).
+- **Im Spiel spawnt niemand, Konsole meldet `Couldn't find resource spawnmanager`**: Die Basis-Ressourcen in
+  `[cfx-default]` fehlen. `install.bat` ohne `-SkipResources` ausführen (Linux: `scripts/linux/install-resources.sh`).
+  `install.bat`, `start.bat` und `start-direct.bat` warnen in diesem Fall.
 - **7-Zip fehlt**: Nur relevant bei `install.bat -ArchiveFormat 7z`. Das Skript lädt dann automatisch
   `7zr.exe` nach `tools\`. Der Standardweg (`server.zip`) braucht kein 7-Zip.
 - **txAdmin lehnt die server.cfg ab** ("Unable to start the server due to error(s) in your config file(s)"):

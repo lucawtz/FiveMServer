@@ -251,8 +251,11 @@ Weg A, nur der Kern:
 
 - `oxmysql` meldet beim Start `Database server connection established`. Fehlt das: Verbindungs-String,
   Passwort-Sonderzeichen, läuft MariaDB (`systemctl status mariadb`, Windows: Dienst `MariaDB`)?
-- `Couldn't find resource ...`: falsche Reihenfolge der `ensure`-Zeilen oder Ordnername weicht vom
-  Ressourcennamen ab. `refresh` in der Konsole, dann `ensure <name>`.
+- `Couldn't find resource ...`: Ressource nicht installiert, falsche Reihenfolge der `ensure`-Zeilen oder
+  Ordnername weicht vom Ressourcennamen ab. Betrifft es `mapmanager`, `spawnmanager` oder `basic-gamemode`,
+  fehlt `[cfx-default]`: unter Windows `install.bat` ohne `-SkipResources` ausführen (bei einem kaputten Ordner
+  `install.bat -ForceResources`), unter Linux `scripts/linux/install-resources.sh` (bei einem kaputten Ordner
+  mit `--force`). Sonst `refresh` in der Konsole, dann `ensure <name>`.
 - `Table 'fivem.users' doesn't exist`: SQL nicht oder in die falsche Datenbank importiert.
 - ox_lib startet nicht: OneSync aus. Im txAdmin-Modus Settings > FXServer > OneSync "on". Im Direktmodus
   `start-direct.bat` nutzen bzw. `+set onesync on` vor `+exec server.cfg` mitgeben; kein `set onesync on` in

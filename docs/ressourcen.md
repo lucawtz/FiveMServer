@@ -104,8 +104,9 @@ Windows:  scripts\windows\install.bat -UpdateResources
 Linux:    scripts/linux/install-resources.sh [--update] [--force] [--manifest <pfad>]
 ```
 
-Exit-Codes: Windows 0 ok, 1 Abbruch, 2 mindestens ein Eintrag fehlgeschlagen. Linux 0 ok, 1 Abbruch oder
-mindestens ein Eintrag fehlgeschlagen. Auf beiden Plattformen gilt: Fehlt das Standard-Manifest, nur eine Warnung
+Exit-Codes: Windows 0 ok, 1 Abbruch, 2 mindestens ein Eintrag fehlgeschlagen. `install.bat` bzw. `install.ps1`
+endet außerdem mit 2, wenn in `[cfx-default]` das `fxmanifest.lua` von `mapmanager`, `spawnmanager` oder
+`basic-gamemode` fehlt. Linux 0 ok, 1 Abbruch oder mindestens ein Eintrag fehlgeschlagen. Auf beiden Plattformen gilt: Fehlt das Standard-Manifest, nur eine Warnung
 (Exit 0); ein mit `-ManifestPath` / `--manifest` angegebenes, fehlendes Manifest bricht mit Exit 1 ab.
 `deploy.sh` ruft `install-resources.sh --update` bei jedem Deploy auf.
 

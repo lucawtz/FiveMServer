@@ -5,7 +5,7 @@ rem FiveM Server - Installation unter Windows (Wrapper fuer install.ps1)
 rem Doppelklick reicht. Alle Parameter werden an install.ps1 durchgereicht:
 rem   install.bat -Channel latest
 rem   install.bat -UpdateArtifacts -UpdateResources
-rem   install.bat -SkipResources
+rem   install.bat -UpdateArtifacts -SkipResources   (nur die Artifacts aktualisieren)
 rem ------------------------------------------------------------------
 cd /d "%~dp0..\.."
 
@@ -29,7 +29,7 @@ echo.
 if "%RC%"=="0" (
     echo [OK] Installation abgeschlossen. Naechster Schritt: server-data\secrets.cfg ausfuellen, dann start.bat ausfuehren.
 ) else if "%RC%"=="2" (
-    echo [WARNUNG] Installation abgeschlossen, aber einzelne Ressourcen konnten nicht installiert werden. Bitte die Meldungen oben pruefen.
+    echo [WARNUNG] Installation abgeschlossen, aber die Ressourcen sind unvollstaendig. Bitte die Warnungen oben pruefen.
 ) else (
     echo [FEHLER] Installation mit Exit-Code %RC% abgebrochen. Bitte die Meldungen oben pruefen.
 )

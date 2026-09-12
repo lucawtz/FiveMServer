@@ -182,15 +182,18 @@ deshalb auf `0.0.0.0:40120`; zu bleibt der Port über ufw, das `install.sh --ena
 scripts/linux/update-artifacts.sh [--channel recommended|latest|optional] [--force] [--if-missing]
 ```
 
-- Ohne Optionen: Changelog-API abfragen, laden, wenn `artifacts/run.sh` fehlt oder die API eine andere Version
-  als `artifacts/VERSION.txt` meldet. Sonst `[OK] Artifacts sind aktuell`.
-- `--force`: immer neu laden. `--if-missing`: nur laden, wenn `run.sh` fehlt (nutzt `install.sh`; wird von
-  `--force` überstimmt).
-- Ablauf: `fx.tar.xz` in einen Temp-Ordner laden, mit `tar -tJf` prüfen, altes `artifacts.bak` löschen,
-  `artifacts` nach `artifacts.bak` verschieben, neu entpacken (`tar -xJf`), `chmod +x run.sh`. Schlägt das
-  Entpacken fehl, wird `artifacts.bak` zurückgeschoben. Ein verirrtes `artifacts/txData` (jemand hat `run.sh`
-  im Artifact-Ordner gestartet) wandert mit nach `artifacts.bak` und wird danach nach `artifacts/txData`
-  zurückgeholt. `<repo>/txData` wird nie berührt.
+- Ohne Optionen: Changelog-API abfragen, laden, wenn `artifacts/run.sh` oder `artifacts/VERSION.txt` fehlt oder
+  die API eine andere Version als `artifacts/VERSION.txt` meldet. Sonst `[OK] Artifacts sind aktuell`.
+- `--force`: immer neu laden. `--if-missing`: nur laden, wenn `run.sh` oder `VERSION.txt` fehlt (nutzt
+  `install.sh`; wird von `--force` überstimmt). `VERSION.txt` entsteht erst nach dem vollständigen Entpacken,
+  ein `run.sh` ohne `VERSION.txt` gilt deshalb als abgebrochene Installation und wird ersetzt.
+- Ablauf: `fx.tar.xz` in einen Temp-Ordner laden und mit `tar -tJf` prüfen. Sind die bisherigen Artifacts
+  vollständig (`run.sh` und `VERSION.txt`), altes `artifacts.bak` löschen und `artifacts` nach `artifacts.bak`
+  verschieben. Ein unvollständiger `artifacts`-Ordner wird dagegen nicht gesichert, sondern gelöscht, ein
+  vorhandenes älteres `artifacts.bak` bleibt stehen. Danach neu entpacken (`tar -xJf`), `chmod +x run.sh`.
+  Schlägt das Entpacken fehl, wird `artifacts.bak` zurückgeschoben, sofern es eines gibt. Ein verirrtes
+  `artifacts/txData` (jemand hat `run.sh` im Artifact-Ordner gestartet) wandert in beiden Fällen nach
+  `artifacts.bak` und wird danach nach `artifacts/txData` zurückgeholt. `<repo>/txData` wird nie berührt.
 - Schreibt `artifacts/VERSION.txt` mit `channel=`, `version=`, `url=`, `downloaded_at=` (UTC), `platform=linux`.
 - Braucht `curl`, `tar`, `xz` (Meldung mit `apt install xz-utils`). Exit 1 bei ungültigem Kanal,
   API-, Download- oder Entpackfehler.
