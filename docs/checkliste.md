@@ -55,6 +55,7 @@ Update die Original-Datei mit der eigenen vergleichen.
 
   Server stoppen, alten Ordner `[vendor]/[qbx]/qbx_core` löschen, `install-resources` ausführen. Vorsicht:
   `qbx_hud` (v0.1.0) und `qbx_garages` (v1.1.4) haben nur Releases von 2024, `qbx_vehicleshop` gar keins.
+  Für qbx_core ist das seit 13.09.2026 umgesetzt (Befunde 10 und 11), `resources.txt` enthält die Zeile oben.
 - **Eigener Fork** auf GitHub, sonst. Änderungen direkt im Fork committen, im Manifest mit Tag referenzieren
   (`git <ziel> <fork-url> <tag>`). Updates von Qbox holst du bewusst per Merge in den Fork.
 
@@ -72,7 +73,8 @@ Ressource ihre Jobs registriert, und jeder Serverneustart würde die Mitarbeiter
 Deshalb eine der beiden Varianten:
 
 - [ ] **Empfehlung:** Jobs in `qbx_core/shared/jobs.lua` eintragen (Weg C). Eine Quelle für alle Jobs,
-      `cleanPlayerGroups` bleibt an und räumt weiter auf.
+      `cleanPlayerGroups` bleibt an und räumt weiter auf. Die Datei liegt schon als
+      `[local]/[overrides]/qbx_core_jobs.lua` bereit, dort neue Jobs ergänzen.
 - [ ] Alternative: `CreateJobs` aus der eigenen Ressource, dann `qbx:cleanPlayerGroups` auf `"false"` und die
       Jobs auch nach einem Neustart von `qbx_core` erneut registrieren (`onResourceStart`).
 
@@ -183,6 +185,21 @@ Notiert von Luca beim ersten Einloggen, Ursachen noch nicht untersucht.
       lösbar zusammen mit Befund 6 über einen Override von `resource/interface/client/notify.lua` (Weg B): ohne
       angegebene Dauer z. B. 6 bis 8 Sekunden setzen und über das Feld `style` Schriftgröße und Breite erhöhen.
       Ressourcen mit eigener kurzer `duration` bleiben davon unberührt, bei Bedarf eine Mindestdauer erzwingen.
+- [x] Befunde 10 und 11: Ursache war zweierlei. `qbx_hud` zeigt Geld nur 2 Sekunden bei einer Änderung oder
+      3,5 Sekunden nach `/cash` und `/bank`. Und jeder Charakter startet im Job `unemployed` ("Civilian",
+      "Freelancer", `payment = 10`, `defaultDuty = true`), qbx_core zahlt alle 10 Minuten aufs Konto und meldet nur
+      "Du hast dein Gehalt ... erhalten". Entschieden am 13.09.2026: Grundsicherung bleibt, aber erkennbar.
+  - `qbx_core` steht jetzt fest auf dem Release-Zip v1.24.0 (Weg C). `[local]/[overrides]/qbx_core_jobs.lua`
+    benennt den Job in "Arbeitslos"/"Arbeitsuchend" um, `[local]/[overrides]/qbx_core_config_server.lua` meldet
+    "Grundsicherung erhalten: 10 $ aufs Konto" bzw. "Gehalt als Taxi erhalten: ..." für 7 Sekunden.
+  - Eigene Ressource `[local]/spielerinfo` (Weg D): Panel rechts mit Beruf, Dienst, Einkommen, Zeit bis zur
+    nächsten Zahlung, Bargeld und Konto. `F7` klappt es aus und ein, das Spiel merkt sich die Wahl.
+  - [ ] Umstellen am PC: Server stoppen, Ordner `server-data\resources\[vendor]\[qbx]\qbx_core` löschen,
+        `scripts\windows\install.bat` ausführen (lädt das Zip und kopiert die beiden Dateien), Server starten.
+  - [ ] Im Spiel testen: Panel sichtbar und lesbar neben Benachrichtigungen und Minimap, Beruf "Arbeitslos",
+        nach spätestens 10 Minuten die neue Meldung, Zeit und Kontostand zählen richtig. Danach einen Job
+        annehmen (z. B. Taxi) und prüfen, ob Beruf, Dienst und Gehalt wechseln.
+  - Übrig: Die übrigen Jobs und Ränge sind noch englisch (Phase 5), die Befehle `/cash` und `/bank` ebenso.
 - [ ] Befund 12 beheben: `qbx_vehicleshop` (`client/main.lua`, `startTestDriveTimer`) zeichnet jeden Frame
       `locale('general.testdrive_timer')..math.ceil(...)` per `qbx.drawText2d` an `vec2(1.0, 1.38)` mit Größe
       0.5. Der deutsche Text hat kein Leerzeichen am Ende, der englische schon. Eine eigene Anzeige in
@@ -205,13 +222,10 @@ Notiert von Luca beim ersten Einloggen, Ursachen noch nicht untersucht.
       verpufft ohne Sanitäter. Der Chat bleibt am Boden bedienbar (`qbx_medical`, `client/dead.lua`), `/911e
       <Text>` (Rettungsdienst) und `/911p <Text>` (Polizei) funktionieren also schon, sind aber nirgends erklärt.
       Ob das Handy (npwd) am Boden aufgeht, ist offen, weder `npwd` noch `qbx_npwd` prüfen den Zustand.
-      Bei 5 bis 15 Spielern ist selten jemand im Rettungsdienst. **Entscheidung:**
-  - Weg D, eigene Ressource `[local]/notruf`: am Boden immer ein deutlicher Hinweis "G: Notruf", unabhängig vom
-    Dienststatus. Sind Sanitäter im Dienst, geht der Alarm an sie. Ist niemand im Dienst, kommt nach kurzer
-    Wartezeit ein NPC-Rettungsdienst (Fahrzeug fährt vor, Wiederbelebung gegen Gebühr, z. B. wie
-    `sharedConfig.checkInCost`) oder man wird ins Krankenhaus gebracht. Die Anzeige von `qbx_ambulancejob` läuft
-    weiter, zwei Texte übereinander vermeiden (eigene Anzeige an anderer Stelle oder Weg C).
-  - Einfacher Anfang: nur Hinweis und Befehl `/notruf` in der Einführung (Befund 1) erklären, NPC-Rettung später.
+      Bei 5 bis 15 Spielern ist selten jemand im Rettungsdienst. Lösung über die
+      [Leitstelle mit NPC-Diensten](#leitstelle-und-npc-dienste): am Boden immer ein deutlicher Hinweis "G: Notruf",
+      ohne Sanitäter im Dienst kommt der NPC-Rettungsdienst. Die Anzeige von `qbx_ambulancejob` läuft weiter, zwei
+      Texte übereinander vermeiden (eigene Anzeige an anderer Stelle oder Weg C).
   - [ ] Im Spiel prüfen: Handy am Boden öffnen und anrufen, `/911e` am Boden absetzen.
 - [x] Befund 8: eigene Ressource `[local]/fahrzeughilfe` (Weg D). Im Fahrzeug erscheint links ein Panel mit den
       Tasten für Fahren, Fahrzeug und Weiteres, `F6` klappt es aus und ein, das Spiel merkt sich die Wahl. Die
@@ -415,18 +429,72 @@ Einbruch und Geldtransporter die meiste Zeit gesperrt. Die Werte hängen an **En
   - `qbx_truckrobbery/config/server.lua`: `numRequiredPolice`
 - [ ] Vorschlag: kleine Überfälle (Laden, Einbruch) ab 0–1 Polizisten, große (Juwelier, Bank, Geldtransporter)
       ab 2; Beute und Abklingzeiten an die Wirtschaft anpassen
-- [ ] Idee: **NPC-Fahndung**, wenn niemand im Dienst ist. Eine eigene Ressource gibt den Tätern nach einem Alarm
-      ein GTA-Fahndungslevel, wenn `GetDutyCountType('leo')` 0 liefert. Dafür müssten `maxWantedLevel` und die
-      Polizei-Dienste in `qbx_disableservices` wieder an (Weg C). Aufwand und Nebenwirkungen erst testen
+- [ ] **NPC-Fahndung**, wenn niemand im Dienst ist: siehe [NPC-Polizei](#leitstelle-und-npc-dienste)
 
 ### Behörden und Gangs
 
 - [ ] Polizei (`qbx_police`): Ränge, Ausrüstung, Fahrzeuge, Türen der Wache (`ox_doorlock`), Bußgeldkatalog
 - [ ] Rettungsdienst (`qbx_ambulancejob`, `qbx_medical`, Innenraum `pillbox`): Wiederbelebung, Behandlung, Kosten
-- [ ] Ersatz, wenn niemand im Dienst ist: Selbst-Einweisung im Krankenhaus testen, sonst eigene Lösung
+- [ ] Ersatz, wenn niemand im Dienst ist: siehe [Leitstelle und NPC-Dienste](#leitstelle-und-npc-dienste)
 - [ ] Gefängnis (`xt-prison`), Texte sind nur englisch ([frameworks.md](frameworks.md#sprache))
 - [ ] Gangs: Namen und Ränge in `qbx_core/shared/gangs.lua` (Weg C), eigene Gangs neben oder statt der GTA-Gangs;
       Anführer verwalten Mitglieder über `qbx_management`
+
+### Leitstelle und NPC-Dienste
+
+Entschieden am 13.09.2026: Der Server ist nur für Luca und Freunde. Jede Rolle, die sonst ein Mitspieler
+übernehmen müsste, bekommt einen NPC-Ersatz, damit man auch allein oder zu zweit spielen kann
+([entscheidungen.md](entscheidungen.md#qbox-als-framework)). Grundregel für alle Dienste: **Spieler im Dienst
+haben Vorrang, der NPC springt nur ein, wenn niemand im Dienst ist** (`exports.qbx_core:GetDutyCountType(typ)`).
+Spieler-Dienste bekommen umgekehrt NPC-Einsätze, damit sie auch ohne Mitspieler etwas zu tun haben.
+
+Umsetzung als **eine eigene Ressource** `[local]/leitstelle` mit einem Modul pro Dienst (Weg D). Sie nimmt alle
+Notrufe an (Taste am Boden, Befehl `/notruf`, später eine App bzw. die Nummer im Handy) und verteilt sie.
+
+Stand im Rezept, geprüft am 13.09.2026:
+
+| Dienst | Spieler-Job im Rezept | NPC heute |
+|--------|-----------------------|-----------|
+| Rettungsdienst | `qbx_ambulancejob` (`ambulance`) | Selbst-Einweisung im Krankenhaus für 2000 $ (`checkInCost`), nur solange weniger als 2 Sanitäter im Dienst sind (`minForCheckIn`); Wiederbelebung gegen Gebühr nach Ablauf der Zeit |
+| Polizei | `qbx_police` (`police`, Typ `leo`) | keine: `qbx_disableservices` setzt `maxWantedLevel = 0` und schaltet alle GTA-Einsatzdienste aus, nur Straßensperren sind an |
+| Feuerwehr | **fehlt** (kein Job in `qbx_core/shared/jobs.lua`) | keine, GTA-Feuerwehr ist aus |
+| Militär | **fehlt** | keine, Fort Zancudo nur als Spielgebiet |
+| Abschleppdienst | `qbx_towjob` (`tow`) | nur NPC-Aufträge für den Spieler-Job (`/npc`), niemand holt das Auto eines Spielers ab |
+| Mechaniker | `qbx_mechanicjob` | keine NPC-Werkstatt, Reparatur nur durch Spieler |
+
+- [ ] **Leitstelle:** Notruf mit Art (Rettung, Polizei, Feuer, Panne) und Ort. Ist jemand im passenden Dienst,
+      geht der Alarm mit Blip an ihn (wie heute `hospital:client:ambulanceAlert`), sonst übernimmt der NPC.
+      Rückmeldung an den Anrufer ("Rettungswagen ist unterwegs, ca. 60 Sekunden"). Abklingzeit gegen Spam, der
+      Server prüft Zustand und Ort
+- [ ] **NPC-Rettungsdienst** (Befund 13): Rettungswagen fährt mit Sirene an, Sanitäter-Ped läuft zum Spieler,
+      Animation, Wiederbelebung, Rechnung an das Konto `ambulance`. Bei langer Anfahrt oder unerreichbarem Ort
+      (Wasser, Dach) Transport ins nächste Krankenhaus. Die Wartezeit darf nicht länger sein als die Blutungszeit
+      (360 Sekunden)
+- [ ] **NPC-Polizei:** nach einem Alarm (Überfall, Schüsse, Autodiebstahl) bekommen die Täter ein Fahndungslevel,
+      wenn niemand im Dienst ist. Weg 1: GTA-Fahndung wieder an (`maxWantedLevel` und die Dienste in
+      `qbx_disableservices`, Weg C), einfach, aber GTA-Polizei reagiert auch auf Kleinigkeiten und verhaftet
+      nicht im Qbox-Sinn. Weg 2: eigene Streifen-Peds mit Verfolgung, Festnahme führt zu `xt-prison` bzw.
+      Bußgeld. **Entscheidung** 12. Außerdem ein NPC-Bußgeld für Raser bzw. Blitzer denkbar
+- [ ] **Feuerwehr (neu):** Spieler-Job `fire` in `[local]/[overrides]/qbx_core_jobs.lua` (Weg C) mit Wache,
+      Fahrzeugen und Ausrüstung. Einsätze: brennende Fahrzeuge nach Unfällen, Brände an festen Orten (Feuer per
+      `StartScriptFire`, der Server verteilt die Einsätze), Löschen mit Schlauch bzw. Löschfahrzeug. Ohne Spieler
+      im Dienst löscht ein NPC-Löschzug. Vorlagen mit passender Lizenz suchen, bevor alles selbst gebaut wird
+- [ ] **Militär (neu):** Fort Zancudo als Lore-Militär (San Andreas National Guard bzw. Merryweather), keine
+      echte Armee wie die Bundeswehr ([inhalte-regeln.md](inhalte-regeln.md)). NPC-Wachen am Tor und Sperrgebiet,
+      wer eindringt, wird gewarnt und dann bekämpft. Spieler-Job optional später. **Entscheidung** 13: nur
+      NPC-Sperrgebiet oder auch spielbar
+- [ ] **NPC-Abschleppdienst:** Panne oder Totalschaden melden, ein Abschlepper-NPC holt das Fahrzeug, es landet
+      gegen Gebühr in der Garage bzw. auf dem Abschlepphof (prüfen, was `qbx_garages` dafür anbietet). Ist ein
+      Spieler im Job `tow` im Dienst, bekommt er den Auftrag stattdessen
+- [ ] **NPC-Mechaniker:** Werkstätten mit NPC, Reparatur gegen Geld und Wartezeit, teurer als ein
+      Spieler-Mechaniker. Kosten in `qbx_mechanicjob/config/shared.lua` (`repairCost`) als Anhaltspunkt
+- [ ] **Weitere Rollen mit NPC-Ersatz** (später): Taxi rufen, Anwalt und Richter für kleine Verfahren, Kunden und
+      Lieferaufträge für die Firmen ([Restaurants](#restaurants-lore-ketten)), Verkäufer in Autohaus und
+      Immobilien. Neue Ideen hier eintragen
+- [ ] **Spieler-Dienste mit NPC-Einsätzen:** Polizei, Rettung, Feuerwehr und Abschlepper im Dienst bekommen
+      zufällige NPC-Einsätze (Verletzte, Unfälle, Ladendiebe), damit der Job auch allein trägt
+- [ ] **Leistung:** Peds und Fahrzeuge nur bei Bedarf erzeugen und danach löschen, Anzahl begrenzen, mit `resmon`
+      prüfen
 
 ## Phase 7: Umzug auf den Linux-VPS
 
@@ -464,7 +532,7 @@ Nur Lore-Marken und eigene Designs, keine echten Fahrzeuge oder Marken, auch nic
 
 | # | Frage | Warum wichtig | Vorschlag |
 |---|-------|---------------|-----------|
-| 1 | Wie viele Spieler sind realistisch gleichzeitig online, und wer spielt Polizei und Rettungsdienst? | Überfälle brauchen Gegenspieler, Schwellen in Phase 6 | Unter ca. 8: niedrige Polizei-Schwellen, Rollen abwechselnd besetzen, NPC-Fahndung prüfen |
+| 1 | Wie viele Spieler sind realistisch gleichzeitig online, und wer spielt Polizei und Rettungsdienst? | Überfälle brauchen Gegenspieler, Schwellen in Phase 6 | Niedrige Polizei-Schwellen; fehlende Rollen übernehmen NPCs ([Leitstelle](#leitstelle-und-npc-dienste), Grundsatz entschieden 13.09.2026) |
 | 2 | ~~Wie viel Kriminalität soll es geben?~~ | | **Entschieden 13.09.2026:** Berufe und Kriminalität von Anfang an, siehe Phase 6 |
 | 3 | Wirtschaft locker oder hart? | Startgeld, Gehälter, Preise, Kosten für Autos und Wohnungen | Eher hart, damit Jobs Sinn haben; Werte nach 2 Wochen Spielzeit nachjustieren |
 | 4 | Bezahlte Ressourcen (Tebex) ja oder nein, Budget? | Viele Innenräume und gute Jobs sind kostenpflichtig; Escrow bindet an einen Account | Zunächst nein, Lücken mit eigenen Ressourcen füllen |
@@ -475,6 +543,9 @@ Nur Lore-Marken und eigene Designs, keine echten Fahrzeuge oder Marken, auch nic
 | 9 | Restaurants mit Innenraum-Mod oder ohne? | Größe, Lizenz, eventuell Kosten | Prototyp ohne Mod (Außenstelle/Food-Truck), später entscheiden |
 | 10 | Wie stark wirken Fähigkeiten? | Neue Spieler dürfen nicht abgehängt werden | Nur schneller und mehr Ausbeute, nichts hinter einem Level sperren, kein Verfall |
 | 11 | Angel- und Jagdschein Pflicht? | Realismus gegen Einstiegshürde | Ja, aber günstig; kontrolliert wird nur, wenn es Polizei gibt |
+| 12 | NPC-Polizei über GTA-Fahndung oder eigene Streifen? | GTA-Fahndung ist schnell gebaut, passt aber schlecht zu Gefängnis und Bußgeld | Erst GTA-Fahndung nur nach Alarmen testen, eigene Streifen, wenn es stört |
+| 13 | Militär nur als NPC-Sperrgebiet oder auch als Spieler-Job? | Aufwand, wenig Einsätze in kleiner Runde | Erst NPC-Sperrgebiet Fort Zancudo |
+| 14 | Was kosten NPC-Dienste? | Zu billig macht Spieler-Jobs sinnlos, zu teuer frustriert | Deutlich teurer als ein Spieler im Dienst, Werte mit Entscheidung 3 |
 
 ## Quellen der technischen Angaben
 

@@ -105,11 +105,21 @@ committete Konfiguration, deshalb unterscheidet sich Folgendes:
   den Händler, ohne ihn vorher aussteigen zu lassen; wer fährt, kann dabei sterben. `[local]/probefahrt` hält das
   Fahrzeug 3 Sekunden vor dem Ende an, lässt den Spieler aussteigen und macht ihn 8 Sekunden unverwundbar.
   `qbx_vehicleshop` selbst bleibt unverändert.
+- **qbx_core fest auf v1.24.0 mit eigener `jobs.lua` und `config/server.lua`.** Das Release-Zip ersetzt den
+  Git-Klon von `main` (am 13.09.2026 derselbe Stand), damit die `copy`-Zeilen kein `git pull` blockieren.
+  `[local]/[overrides]/qbx_core_jobs.lua` benennt den Job ohne Beruf (`unemployed`) von "Civilian"/"Freelancer"
+  in "Arbeitslos"/"Arbeitsuchend" um, der Betrag bleibt 10 $ alle 10 Minuten.
+  `[local]/[overrides]/qbx_core_config_server.lua` ändert nur die Meldung bei Zahlungen: "Grundsicherung
+  erhalten" bzw. "Gehalt als ... erhalten", 7 Sekunden sichtbar. Alle anderen Werte wie im Original.
+- **Eigene Ressource `spielerinfo`.** `qbx_hud` zeigt Geld nur kurz bei Änderungen oder nach `/cash` und `/bank`.
+  `[local]/spielerinfo` zeigt rechts ein Panel mit Beruf, Dienst, Einkommen, Zeit bis zur nächsten Zahlung,
+  Bargeld und Konto, `F7` klappt es aus und ein.
 
 ## Qbox aktualisieren
 
 - `deploy.sh` (Linux) bzw. `install.bat -UpdateResources` (Windows) machen `git pull --ff-only` in allen
   git-Zielen. Die Qbox-Repos stehen wie im Rezept auf `main`, jedes Deploy holt also den neuesten Stand.
+  Ausnahme: `qbx_core` steht als Release-Zip fest auf v1.24.0 (eigene `jobs.lua` und `config/server.lua`).
 - zip-Einträge mit `releases/latest/download/...` (oxmysql, ox_inventory, illenium-appearance usw.)
   ändern sich mit `--update`/`-Update` **nicht**. Neue Releases holt nur `--force`/`-Force`, das alle Ziele neu lädt.
   ox_lib steht fest auf v3.39.0 (eigene `textui.lua`).

@@ -84,7 +84,12 @@ zip [vendor]/[voice]/mm_radio https://github.com/qbox-project/mm_radio/releases/
 # ----------------------------------------------------------------------------
 #  [qbx]  Qbox-Kern und Jobs
 # ----------------------------------------------------------------------------
-git [vendor]/[qbx]/qbx_core https://github.com/qbox-project/qbx_core.git main
+# Fester Stand wegen eigener jobs.lua und config/server.lua (Weg C). Neuere Version: URL aendern, Dateien vergleichen, -Force
+zip [vendor]/[qbx]/qbx_core https://github.com/Qbox-project/qbx_core/releases/download/v1.24.0/qbx_core.zip
+# Job ohne Beruf heisst Arbeitslos mit Grundsicherung (Kopf von [local]/[overrides]/qbx_core_jobs.lua)
+copy [local]/[overrides]/qbx_core_jobs.lua [vendor]/[qbx]/qbx_core/shared/jobs.lua
+# Meldung bei Zahlungen nennt Grundsicherung bzw. Gehalt mit Beruf (Kopf von [local]/[overrides]/qbx_core_config_server.lua)
+copy [local]/[overrides]/qbx_core_config_server.lua [vendor]/[qbx]/qbx_core/config/server.lua
 git [vendor]/[qbx]/qbx_vehicles https://github.com/qbox-project/qbx_vehicles.git main
 git [vendor]/[qbx]/qbx_scoreboard https://github.com/qbox-project/qbx_scoreboard.git main
 git [vendor]/[qbx]/qbx_adminmenu https://github.com/qbox-project/qbx_adminmenu.git main

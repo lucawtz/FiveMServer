@@ -1,0 +1,111 @@
+/* spielerinfo: Panel am Bildschirmrand, eingeklappt nur die Kopfzeile. Aussehen wie fahrzeughilfe. */
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    overflow: hidden;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    user-select: none;
+}
+
+.panel {
+    position: absolute;
+    top: 38vh;
+    right: 1.2vw;
+    min-width: 15rem;
+    max-width: 21rem;
+    padding: 0.55rem 0.75rem;
+    border-radius: 0.6rem;
+    background: rgba(16, 17, 20, 0.82);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 0.4rem 1.2rem rgba(0, 0, 0, 0.35);
+    color: #f1f3f5;
+    font-size: 0.9rem;
+    transition: opacity 150ms ease;
+}
+
+.panel.left {
+    right: auto;
+    left: 1.2vw;
+}
+
+.panel.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.title {
+    font-weight: 600;
+    letter-spacing: 0.01em;
+}
+
+.hint {
+    margin-left: auto;
+    color: #adb5bd;
+    font-size: 0.8rem;
+}
+
+.key {
+    display: inline-block;
+    min-width: 1.6rem;
+    padding: 0.1rem 0.4rem;
+    border-radius: 0.3rem;
+    background: #f1e542;
+    color: #141517;
+    font-weight: 700;
+    font-size: 0.8rem;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.rows,
+.footer {
+    display: none;
+}
+
+.panel.expanded .rows,
+.panel.expanded .footer {
+    display: block;
+}
+
+.rows {
+    margin-top: 0.5rem;
+}
+
+.row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.15rem 0;
+}
+
+.row .label {
+    color: #adb5bd;
+}
+
+.row .value {
+    font-weight: 600;
+    text-align: right;
+}
+
+.row .value.money {
+    color: #8ce99a;
+    font-size: 1rem;
+}
+
+.footer {
+    margin-top: 0.6rem;
+    padding-top: 0.45rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    color: #868e96;
+    font-size: 0.72rem;
+}

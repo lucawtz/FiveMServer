@@ -1,0 +1,28 @@
+{
+    "title": "Beruf und Geld",
+    "hint_expand": "ausklappen",
+    "hint_collapse": "einklappen",
+    "keybind": "Beruf und Geld aus- und einklappen",
+    "footer": "Gehalt und Grundsicherung gehen aufs Konto",
+    "unbound": "nicht belegt",
+    "special_key": "Sondertaste",
+    "loading": "wird geladen",
+
+    "job": "Beruf",
+    "duty": "Dienst",
+    "duty_on": "im Dienst",
+    "duty_off": "nicht im Dienst",
+
+    "income": "Einkommen",
+    "income_none": "keins",
+    "basic_income": "Grundsicherung",
+    "salary": "Gehalt",
+    "income_value": "%s alle %s Min.",
+    "income_off_duty": "nur im Dienst (%s)",
+    "next_payment": "Nächste Zahlung",
+    "next_in": "in %s",
+    "next_in_approx": "in ca. %s",
+
+    "cash": "Bargeld",
+    "bank": "Konto"
+}

@@ -114,6 +114,23 @@ kurz vor dem Ende das Fahrzeug an und schützt den Spieler, bis der Teleport des
 eigene Uhr startet beim Client etwas später als die des Servers; der Vorlauf von 3 Sekunden deckt das ab.
 Ändert Qbox den Namen des State Bags, wirkt der Schutz nicht mehr.
 
+**Grundsicherung sichtbar machen statt abschaffen.** Entschieden am 13.09.2026: Charaktere ohne Beruf bekommen
+weiter 10 $ alle 10 Minuten, aber erkennbar als "Arbeitslos" mit der Meldung "Grundsicherung erhalten". Dafür
+steht qbx_core fest auf dem Release v1.24.0 mit `copy`-Zeilen für `shared/jobs.lua` und `config/server.lua`
+(Weg C). Diesen Weg brauchen eigene Firmen-Jobs ohnehin (Stolperfalle `cleanPlayerGroups` in der Checkliste).
+Beruf und Einkommen zeigt die eigene Ressource `[local]/spielerinfo` statt eines Forks von `qbx_hud`. Grenze:
+Den Takt der Gehaltsschleife gibt qbx_core nicht heraus. `spielerinfo` merkt sich die letzte Zahlung und rechnet
+von dort; bis zur ersten Zahlung nach einem Neustart steht "ca." vor der Zeit. `paycheckMinutes` in
+`spielerinfo/config.lua` muss zu `paycheckTimeout` passen.
+
+**NPCs übernehmen fehlende Rollen.** Entschieden am 13.09.2026: Der Server ist nur für Luca und Freunde (etwa 5
+bis 15 Spieler), Polizei, Rettungsdienst, Feuerwehr oder Abschleppdienst sind deshalb meist nicht besetzt. Das
+Rezept ist für größere Server gebaut: Notrufe gehen nur an Spieler im Dienst, alle GTA-Einsatzdienste sind aus
+(`qbx_disableservices`). Wo eine Rolle fehlt, springt deshalb ein NPC ein, Spieler im Dienst haben aber immer
+Vorrang und NPC-Dienste kosten mehr. Gebündelt wird das in einer eigenen Ressource `[local]/leitstelle` statt in
+Forks der einzelnen Jobs, weil die Verteilung (Spieler oder NPC) für alle Dienste gleich ist. Plan:
+[checkliste.md](checkliste.md#leitstelle-und-npc-dienste).
+
 **Deutsch über Convars.** `ox:locale "de"` gilt für alle qbx- und ox-Ressourcen mit `locales/*.json`; Ausnahmen
 ohne deutsche Texte stehen in [frameworks.md](frameworks.md#sprache). `illenium-appearance:locale` gilt für
 Aussehen und Kleidung. `qb_locale` liest keine Rezept-Ressource, es bleibt für QBCore-Skripte über die Brücke.
