@@ -193,6 +193,7 @@ den neuesten Stand, zip-Ressourcen nur mit Force. Festen Stand einstellen:
 
 ## Dokumentation
 
+- [docs/checkliste.md](docs/checkliste.md): Plan und Checkliste: was auf den Server kommt, Reihenfolge, Umsetzung, offene Entscheidungen
 - [docs/windows-lokal.md](docs/windows-lokal.md): Installation, Datenbank, Startmodi, alle Skript-Parameter, Fehlerbilder
 - [docs/linux-server.md](docs/linux-server.md): install.sh im Detail, systemd, License Allowlist, Firewall, sudoers, Deploy per GitHub Actions, Backups
 - [docs/docker.md](docs/docker.md): Image bauen, Compose, `.env`, uid 1000, SQL-Import, Updates
