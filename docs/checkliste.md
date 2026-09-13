@@ -118,6 +118,53 @@ Ziel dieser Phase: wissen, was funktioniert, bevor etwas geändert wird.
 - [ ] **Leistung:** `resmon` im Client (F8), Server-Auslastung im txAdmin-Dashboard; Ressourcen mit dauerhaft hoher Last notieren
 - [ ] **Beschriftungen mit echten Produktnamen** notieren (Items, Shops, Handy), siehe [inhalte-regeln.md](inhalte-regeln.md#fremd-ressourcen-prüfen)
 
+### Befunde aus dem ersten Spieltest (13.09.2026)
+
+Notiert von Luca beim ersten Einloggen, Ursachen noch nicht untersucht.
+
+| # | Bereich | Beobachtung | Soll |
+|---|---------|-------------|------|
+| 6 | Bedienung | Beim Parken steht der Hinweis "E - Garage öffnen" klein am rechten Bildschirmrand und fällt nicht auf. | Bei allen Interaktionen ist der Hinweis sofort sichtbar, z. B. unten mittig und deutlicher hervorgehoben. |
+| 7 | Fahrzeughändler | Nach der Probefahrt beim Premium Deluxe Motorsport liegt der Charakter tot vor dem Eingang. | Nach der Probefahrt steht man unverletzt am Händler, das Testfahrzeug ist weg. |
+
+- [ ] Logs vom 13.09.2026 auswerten (Server: `txData/default/logs/fxserver.log`, Client:
+      `%LOCALAPPDATA%\FiveM\FiveM.app\logs\CitizenFX_log_*.log`). Nach Wichtigkeit:
+  - **Handy (npwd):** Server meldet beim Anlegen des Charakters `Cannot read properties of null (reading
+    'getIdentifier')` in `handleUnloadPlayerEvent`. Im Client bei jedem Öffnen `reading 'map'`,
+    `Settings Schema was invalid, applying default settings` und für `npwd_qbx_mail` und `npwd_qbx_garages`
+    `Cannot use import statement outside a module`, danach aber "Successfully loaded". Im Spiel prüfen, ob
+    Mail- und Garagen-App funktionieren und Einstellungen gespeichert bleiben.
+  - **Serverliste:** wiederholt `failed to store server`. Vermutlich erreicht die Serverliste den Server von außen
+    nicht (Port 30120 nicht freigegeben oder CGNAT). Lokal harmlos, wichtig für "Ein Freund verbindet sich" in Phase 0.
+  - **Probefahrt (Befund 7):** Etwa 14:28, kurz vor dem Verlassen, meldet der Client
+    `[entity] GetNetworkObject: no object by ID 65534`. Zeitlich passend zum Ende der Probefahrt, Zusammenhang offen.
+  - **Zonen:** `attempted to remove a zone that does not exist (id: nil)` (ox_lib), Ressource unbekannt, etwa
+    10 Minuten nach dem Einloggen.
+  - **Chat:** `Cannot read properties of undefined (reading 'replace')` in `chat/dist/chat.js` direkt nach dem
+    Verbinden. Prüfen, ob Chat und `qbx_chat_theme` normal funktionieren.
+  - **Deutsche Texte fehlen:** `could not load 'locales/de.json'` bei `xt-prison`, `npwd_qbx_garages` und
+    `npwd_qbx_mail`, dort erscheint Englisch. Übersetzung per Override (Weg B/C), siehe Phase 2.
+  - **Harmlos:** `ultra-voltlab` meldet `failed loading ... dlchei4_game.dat` (die Dateien liegen als `.dat151`
+    bzw. `.dat54` vor, Sound im Hacking-Spiel prüfen). `server thread hitch warning` und langsame
+    `CREATE INDEX`-Abfragen nur beim Start. Hinweise von `qbx_entitiesblacklist` und `qbx_staticemitters` sind
+    gewollt. Den Qbox-Begrüßungstext blendet `set qbx:acknowledge "true"` in `server.cfg` aus.
+  - **Schon behoben:** `No such command password=...` und `sv_endpointPrivacy` kamen nur beim ersten Start um
+    13:31, beim Neustart um 13:41 nicht mehr.
+- [x] Befund 6: Der Hinweis ist die TextUI von `ox_lib` (`lib.showTextUI`), Standardposition `right-center`, ohne
+      Convar. Etwa 45 Ressourcen nutzen sie (Garagen, Jobs, Shops, Türen, Überfälle), viele geben selbst
+      `left-center` an. `ox_lib` steht jetzt fest auf v3.39.0, `[local]/[overrides]/ox_lib_textui.lua` ersetzt die
+      Datei (Weg B): immer unten mittig, größere fette Schrift, blauer Rand links, etwas über dem Bildschirmrand.
+  - [ ] Im Spiel testen: Garage, Kleidungsladen (illenium-appearance), ein Job. Überdeckt der Hinweis im
+        Fahrzeug den Tacho von `qbx_hud`? Dann `marginBottom` in der Datei anpassen.
+  - [ ] Interaktionen über `ox_target` (linke Alt-Taste) sind eine andere Anzeige, getrennt bewerten.
+- [x] Befund 7: Nach 5 Minuten (`testDrive.limit`, `endBehavior = 'return'`) setzt `qbx_vehicleshop`
+      (`server/main.lua`) den Spieler per `SetEntityCoords` auf `returnLocation` `-32.77, -1095.75, 26.42` und
+      löscht danach das Fahrzeug, ohne ihn vorher aussteigen zu lassen. Die genaue Todesursache steht in keinem
+      Log, vermutlich reißt der Teleport den Charakter mit Tempo aus dem Auto. Fix ohne Fork: eigene Ressource
+      `[local]/probefahrt` (Weg D) hält das Fahrzeug 3 Sekunden vor dem Ende an, lässt den Spieler aussteigen und
+      macht ihn 8 Sekunden unverwundbar (`config.lua`).
+  - [ ] Im Spiel testen: Probefahrt bis zum Ende mit Tempo durchfahren, Spieler steht danach lebend am Händler.
+
 ## Phase 2: Entscheiden und aufräumen
 
 - [ ] [Offene Entscheidungen](#offene-entscheidungen) beantworten

@@ -93,13 +93,22 @@ committete Konfiguration, deshalb unterscheidet sich Folgendes:
 - **`sprunk` statt `cola` in der Fahrzeug-Beute.** Das Rezept trägt in `inventory:vehicleloot` das Item `cola`
   ein, das weder die Qbox-Items noch ox_inventory definieren. ox_inventory meldet dann `item does not exist`
   und legt nichts ab. `ox.cfg` nutzt stattdessen das GTA-Getränk `sprunk`, das in den Qbox-Items existiert.
+- **ox_lib fest auf v3.39.0 mit eigener `textui.lua`.** `[local]/[overrides]/ox_lib_textui.lua` ersetzt per
+  `copy`-Zeile die TextUI von ox_lib: Interaktions-Hinweise ("E - Garage öffnen" usw.) stehen immer unten mittig,
+  größer und mit farbigem Rand, auch wenn eine Ressource `left-center` oder `right-center` angibt. Im Original
+  stehen sie klein am Bildschirmrand und fallen kaum auf.
+- **Eigene Ressource `probefahrt`.** `qbx_vehicleshop` setzt am Ende der Probefahrt den Spieler per Teleport vor
+  den Händler, ohne ihn vorher aussteigen zu lassen; wer fährt, kann dabei sterben. `[local]/probefahrt` hält das
+  Fahrzeug 3 Sekunden vor dem Ende an, lässt den Spieler aussteigen und macht ihn 8 Sekunden unverwundbar.
+  `qbx_vehicleshop` selbst bleibt unverändert.
 
 ## Qbox aktualisieren
 
 - `deploy.sh` (Linux) bzw. `install.bat -UpdateResources` (Windows) machen `git pull --ff-only` in allen
   git-Zielen. Die Qbox-Repos stehen wie im Rezept auf `main`, jedes Deploy holt also den neuesten Stand.
-- zip-Einträge mit `releases/latest/download/...` (ox_lib, oxmysql, ox_inventory, illenium-appearance usw.)
+- zip-Einträge mit `releases/latest/download/...` (oxmysql, ox_inventory, illenium-appearance usw.)
   ändern sich mit `--update`/`-Update` **nicht**. Neue Releases holt nur `--force`/`-Force`, das alle Ziele neu lädt.
+  ox_lib steht fest auf v3.39.0 (eigene `textui.lua`).
 - Wer einen Stand festhalten will, setzt im Manifest bei git-Zeilen ein Tag als `[ref]` bzw. bei zip-Zeilen eine
   Release-URL mit fester Version (wie bei npwd `.../releases/download/3.16.0/npwd.zip`), siehe
   [ressourcen.md](ressourcen.md#fester-stand-oder-immer-aktuell).

@@ -137,7 +137,10 @@ git [vendor]/[qbx]/qbx_chat_theme https://github.com/Qbox-project/qbx_chat_theme
 # ----------------------------------------------------------------------------
 #  [ox]  Bibliothek, Datenbank-Anbindung, Target, Inventar, Tueren, Tanken
 # ----------------------------------------------------------------------------
-zip [vendor]/[ox]/ox_lib https://github.com/overextended/ox_lib/releases/latest/download/ox_lib.zip
+# Fester Stand wegen der eigenen textui.lua (Weg B). Neuere Version: URL aendern, Datei vergleichen, -Force
+zip [vendor]/[ox]/ox_lib https://github.com/overextended/ox_lib/releases/download/v3.39.0/ox_lib.zip
+# Interaktions-Hinweise immer unten mittig und hervorgehoben (Kopf von [local]/[overrides]/ox_lib_textui.lua)
+copy [local]/[overrides]/ox_lib_textui.lua [vendor]/[ox]/ox_lib/resource/interface/client/textui.lua
 zip [vendor]/[ox]/ox_target https://github.com/overextended/ox_target/releases/latest/download/ox_target.zip
 zip [vendor]/[ox]/oxmysql https://github.com/overextended/oxmysql/releases/latest/download/oxmysql.zip
 zip [vendor]/[ox]/ox_doorlock https://github.com/overextended/ox_doorlock/releases/latest/download/ox_doorlock.zip

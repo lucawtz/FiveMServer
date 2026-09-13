@@ -103,6 +103,17 @@ ohne Apartment-Ressource) spawnt `qbx_core` selbst über `spawnmanager`. Die Bei
 den Eventnamen `QBCore:Client:OnPlayerLoaded` (nur der Name, keine Abhängigkeit) und begrüßt spätestens zwei
 Minuten nach dem Verbinden, jeweils nur einmal.
 
+**Interaktions-Hinweise zentral in ox_lib.** Fast alle Ressourcen zeigen "E - ..." über `lib.showTextUI`, mit
+eigener oder ohne Position (Standard `right-center`). Einzelne Ressourcen anzupassen hieße Forks von rund 45
+Repos. Eine eigene `textui.lua` per `copy`-Zeile (Weg B) erzwingt `bottom-center` und einen auffälligen Stil für
+alle. Weil die Datei zum Stand von ox_lib passen muss, steht ox_lib fest auf v3.39.0.
+
+**Probefahrt über eigene Ressource statt Fork.** `qbx_vehicleshop` hat keine Releases, eine Änderung am Code
+bräuchte einen Fork (Weg C). `[local]/probefahrt` hört stattdessen auf denselben State Bag `isInTestDrive`, hält
+kurz vor dem Ende das Fahrzeug an und schützt den Spieler, bis der Teleport des Servers durch ist. Grenze: Die
+eigene Uhr startet beim Client etwas später als die des Servers; der Vorlauf von 3 Sekunden deckt das ab.
+Ändert Qbox den Namen des State Bags, wirkt der Schutz nicht mehr.
+
 **Deutsch über Convars.** `ox:locale "de"` gilt für alle qbx- und ox-Ressourcen mit `locales/*.json`; Ausnahmen
 ohne deutsche Texte stehen in [frameworks.md](frameworks.md#sprache). `illenium-appearance:locale` gilt für
 Aussehen und Kleidung. `qb_locale` liest keine Rezept-Ressource, es bleibt für QBCore-Skripte über die Brücke.
