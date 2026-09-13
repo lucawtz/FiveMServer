@@ -24,9 +24,11 @@ Kontext und Regeln für Claude-Code-Sitzungen in diesem Repo. Gilt auf jedem Rec
 - **Mac:** Entwicklung und Linux-Skripttests. FXServer läuft dort nicht (arm64, kein Docker), GTA ist nicht installiert.
 - **Windows-PC:** lokaler Testserver mit GTA V und FiveM, Repo z. B. unter `C:\FiveMServer` (kurzer ASCII-Pfad).
 - **Später:** Ubuntu-24.04-VPS mit systemd und txAdmin, Deploy per `scripts/linux/deploy.sh` bzw. GitHub Actions.
-- **Stand 13.09.2026:** Die Windows-Skripte liefen noch nie auf echtem Windows, der SQL-Import noch nie gegen ein
-  echtes MariaDB, FXServer mit Qbox wurde noch nie gestartet. Getestet wurde auf dem Mac mit echten Downloads,
-  pwsh 7 und Stubs. Meldet Luca Fehler vom ersten Lauf, zuerst die **komplette** Konsolenausgabe erbitten.
+- **Stand 13.09.2026:** Auf dem Windows-PC (Windows 11, PowerShell 5.1, Repo unter `C:\Code\FiveMServer`) liefen
+  `install.ps1`, `setup-database` (`-InstallMariaDB`, `-Create -Import`, `-DryRun`) gegen MariaDB 12.3.3 und
+  `start.bat` mit txAdmin 8.1.1 erfolgreich, Qbox startet. Im Spiel ist noch nichts getestet. Die Linux-Skripte
+  und Docker liefen noch nie auf einem echten Ubuntu. Meldet Luca Fehler, zuerst die **komplette**
+  Konsolenausgabe erbitten.
 
 ## Aufbau
 
@@ -126,5 +128,8 @@ Auf Windows mindestens die geänderten `.ps1` parsen, z. B.
 - Qbox-Quellen stehen wie im Rezept auf `main` bzw. `releases/latest` und können sich bei jedem Update ändern.
 - `sv_master1 ""` nimmt den Server nicht aus der Serverliste. Zugang nur für Freunde über die txAdmin
   License Allowlist.
+- In cfg-Dateien trennt `;` außerhalb von Anführungszeichen Befehle, auch in `#`-Kommentaren (Log:
+  `No such command ...`). Die CI prüft das. Zweimal `Argument count mismatch (passed 1, wanted 2)` beim Start
+  kommt von txAdmin (`sets sv_allowlistInstructions ""` bei ausgeschalteter Allowlist) und ist harmlos.
 - Windows: Klick ins Konsolenfenster (QuickEdit) hält den Server an, `Esc` löst es. Pfade mit Umlauten brechen txAdmin.
 - Admins und Allowlist liegen in `txData/` und wandern nicht über Git mit.

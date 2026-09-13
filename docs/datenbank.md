@@ -421,7 +421,8 @@ laufende Server:
   warnen.
 - Zwei Schreibweisen:
   `mysql://fivem:PASSWORT@127.0.0.1:3306/fivem?charset=utf8mb4` oder
-  `user=fivem;password=PASSWORT;host=127.0.0.1;port=3306;database=fivem`.
+  `user=fivem;password=PASSWORT;host=127.0.0.1;port=3306;database=fivem`. Beide immer in Anführungszeichen:
+  außerhalb davon trennt FXServer am `;` Befehle, auch in `#`-Kommentaren.
 - **Passwort nur aus `A-Z a-z 0-9`.** oxmysql dekodiert keine `%XX`-Sequenzen (die Skripte warnen, das Passwort
   gilt wörtlich), und Zeichen wie `; , / ? : @ & = + $ #` zerlegen den String. Die erzeugten Passwörter sind hex.
 - In der Schlüssel-Schreibweise sind die Namen nach dem Umschreiben der Aliase (`uid`, `pwd`, `db`, `server` usw.)

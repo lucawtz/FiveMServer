@@ -4,7 +4,8 @@
 #                 Kompatibilitaetsregeln PSUseCompatibleSyntax/PSUseCompatibleCommands fuer 5.1) fuer scripts/windows/*.ps1
 #   lua        -> luac5.4 -p fuer alle .lua unter server-data/resources/[local]
 #   manifests  -> install-resources.sh --check (resources.txt), setup-database.sh --check (database.txt),
-#                 kein OneSync-Setter und keine Geheimnisse in committeten cfg-Dateien, LF in server-data-Textdateien
+#                 kein OneSync-Setter, keine Geheimnisse und kein Semikolon in Kommentaren committeter cfg-Dateien,
+#                 LF in server-data-Textdateien
 name: CI
 
 on:
@@ -185,6 +186,18 @@ jobs:
             exit 1
           fi
           echo "Keine Geheimnisse gefunden."
+
+      - name: Kein Semikolon in cfg-Kommentaren
+        shell: bash
+        run: |
+          # FXServer trennt Befehle am ';' auch in '#'-Kommentaren und fuehrt den Rest der Zeile aus
+          # ("No such command ..."). Semikolons in Anfuehrungszeichen (z. B. qbx:motd) sind erlaubt.
+          if git ls-files -z 'server-data/*.cfg' 'server-data/*.example' \
+              | xargs -0 -r grep -nE '^[[:space:]]*#.*;'; then
+            echo "::error::Semikolon in einem cfg-Kommentar (siehe Treffer oben). FXServer fuehrt den Rest der Zeile als Befehl aus."
+            exit 1
+          fi
+          echo "Kein Semikolon in cfg-Kommentaren."
 
       - name: LF-Zeilenenden in server-data (cfg, txt, example)
         shell: bash

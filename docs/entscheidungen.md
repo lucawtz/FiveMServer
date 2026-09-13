@@ -293,11 +293,11 @@ löscht es vor dem Neuklonen (`Entferne '<ziel>' (-Force) ...`).
 
 ## Bekannte Grenzen / ungetestet
 
-- Die PowerShell-Skripte wurden nur statisch geprüft (Parser 5.1 und PSScriptAnalyzer in der CI, Funktionstests
-  unter PowerShell 7 auf macOS), aber noch nicht auf einem Windows mit Windows PowerShell 5.1 ausgeführt.
-  Ungetestet sind insbesondere `winget --interactive`, die Übergabe per stdin an ein echtes `mariadb.exe`, die
-  Rechte des Temp-Ordners, die Anmeldeprüfung von `-Create` über eine Named Pipe (`socketPath`) und die
-  `findstr`-Prüfung in `start.bat`/`start-direct.bat`.
+- Auf Windows 11 mit Windows PowerShell 5.1 liefen am 13.09.2026 `install.ps1` (Artifacts 35245, 80 von 80
+  Manifest-Einträgen), `setup-database.ps1` mit `-InstallMariaDB`, `-Create -Import` und `-DryRun` gegen
+  MariaDB 12.3.3 sowie `start.bat` mit txAdmin 8.1.1 erfolgreich. Noch nicht auf Windows ausgeführt:
+  `start-direct.bat`, die Update- und Force-Pfade (`-UpdateArtifacts`, `-UpdateResources`, `-ForceResources`),
+  `-ResetPassword`, `-MarkApplied` und die Fehlerpfade.
 - `install.sh`, `setup-database.sh` und das Dockerfile wurden gelesen und in Teilen getestet (Firewall-Logik,
   `cfg_set_line`, Manifest-Parser, Verbindungs-String-Parser, Import mit einem Platzhalter-Client, `deploy.sh`-Konfliktfall
   in einer Git-Sandbox), aber noch nicht komplett auf einem echten Ubuntu-VPS, gegen eine echte MariaDB bzw. mit
@@ -306,8 +306,12 @@ löscht es vor dem Neuklonen (`Entferne '<ziel>' (-Force) ...`).
   Auto-Upgrade gemessen.
 - Ob `--create`/`-Create` das neue Datenbank-Passwort anzeigt, hängt nur daran, ob die Ausgabe ein Terminal ist.
   Mitschnitte über ein Terminal (`script` unter Linux, `Start-Transcript` in PowerShell) enthalten es trotzdem.
-- Verschachtelte Kategorien (`ensure [qbx]` innerhalb von `[vendor]`) und das Überspringen von `.sources` sind im
-  FXServer-Quellcode geprüft, nicht durch einen Serverstart.
+- Verschachtelte Kategorien (`ensure [qbx]` innerhalb von `[vendor]`) funktionieren, der erste Serverstart am
+  13.09.2026 hat alle Ressourcen gestartet und oxmysql mit der Datenbank verbunden.
+- Beim Start meldet FXServer zweimal `Argument count mismatch (passed 1, wanted 2)`. Das kommt nicht aus den
+  cfg-Dateien: txAdmin 8.1.1 setzt bei ausgeschalteter Allowlist `sets sv_allowlistInstructions ""`, einmal als
+  Startargument und einmal zur Laufzeit, und der leere Wert zählt nicht als Argument. Harmlos, mit
+  eingeschalteter Allowlist und Ablehnungstext sollte die Meldung verschwinden.
 - Die Spielbarkeit von Qbox (Charaktererstellung, Jobs, Handy) ist nicht im Spiel verifiziert.
 - Git-Ressourcen auf `main` und zip-Ressourcen auf `releases/latest` bewegen sich: ein Deploy kann Stände
   zusammenbringen, die nicht zueinander passen (siehe [ressourcen.md](ressourcen.md#fester-stand-oder-immer-aktuell)).

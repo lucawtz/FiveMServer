@@ -36,6 +36,8 @@ fx.tar.xz
 # --- Laufzeit-Dateien von FXServer -------------------------------------------
 /server-data/cache/
 /server-data/db/
+# Befehlsverlauf der Serverkonsole
+/server-data/.replxx_history
 *.log
 
 # --- Betriebssystem / Editoren -------------------------------------------------

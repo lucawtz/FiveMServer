@@ -82,11 +82,13 @@ Deshalb eine der beiden Varianten:
 
 - [x] Grundgerüst, Skripte, Doku (`977fab0`, `aa24ff3`)
 - [x] Qbox und MariaDB eingebaut (`c3ccd53`)
-- [ ] Lizenzschlüssel erstellen: <https://portal.cfx.re/> > Servers > Registration Keys
-- [ ] Am Windows-PC klonen (kurzer Pfad, z. B. `C:\FiveMServer`), `scripts\windows\install.bat`
-- [ ] `setup-database.bat -InstallMariaDB`, danach `setup-database.bat -Create -Import`
+- [x] Lizenzschlüssel erstellen: <https://portal.cfx.re/> > Servers > Registration Keys
+- [x] Am Windows-PC klonen (kurzer Pfad, z. B. `C:\FiveMServer`), `scripts\windows\install.bat`
+      (13.09.2026 unter `C:\Code\FiveMServer`: Artifacts 35245, 80 von 80 Manifest-Einträgen installiert)
+- [x] `setup-database.bat -InstallMariaDB`, danach `setup-database.bat -Create -Import`
+      (13.09.2026: MariaDB 12.3.3, 9 SQL-Dateien importiert)
 - [ ] Key in `server-data\secrets.cfg` eintragen
-- [ ] `start.bat`, txAdmin mit "Existing Server Data" einrichten
+- [x] `start.bat`, txAdmin mit "Existing Server Data" einrichten (13.09.2026, alle Ressourcen starten, Datenbank verbunden)
 - [ ] `connect localhost:30120`, Charakter anlegen, `/hallo` testen
 - [ ] Dich zum Admin machen (`add_principal` in `server.cfg`, Abschnitt "Admin-Rechte"), `/admin` testen
 - [ ] License Allowlist in txAdmin einschalten ([linux-server.md](linux-server.md#nur-freunde-zulassen-license-allowlist))
