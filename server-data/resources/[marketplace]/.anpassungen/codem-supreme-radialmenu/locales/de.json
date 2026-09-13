@@ -1,0 +1,292 @@
+{
+    "settings": {
+        "title": "Mein RP-Projekt",
+        "subtitle": "Einstellungen",
+        "categories": {
+            "general": "Allgemein",
+            "customization": "Anpassen"
+        },
+        "theme": {
+            "title": "Design",
+            "light": "Hell",
+            "dark": "Dunkel",
+            "dynamic": "Dynamisch",
+            "description": "Wähle das Design des Radialmenüs"
+        },
+        "backgroundBlur": {
+            "title": "Hintergrund-Unschärfe",
+            "on": "An",
+            "off": "Aus",
+            "description": "Unschärfe hinter dem Menü ein- oder ausschalten"
+        },
+        "soundEffect": {
+            "title": "Soundeffekte",
+            "on": "An",
+            "off": "Aus",
+            "description": "Soundeffekte ein- oder ausschalten"
+        },
+        "radialBehaviour": {
+            "title": "Öffnen",
+            "hold": "Halten",
+            "press": "Drücken",
+            "description": "Lege fest, wie sich das Radialmenü öffnet"
+        },
+        "coloredMenu": {
+            "title": "Farbiges Menü",
+            "on": "An",
+            "off": "Aus",
+            "description": "Farbige Menüeinträge ein- oder ausschalten"
+        },
+        "scale": {
+            "title": "Menügröße",
+            "description": "Größe des Radialmenüs anpassen"
+        },
+        "revertToDefault": "Standard wiederherstellen",
+        "appTitle": "Radialmenü"
+    },
+    "customization": {
+        "addNewCommand": "Neuen Befehl hinzufügen",
+        "livePreview": "Vorschau",
+        "modal": {
+            "addTitle": "Neuen Befehl hinzufügen",
+            "editTitle": "Befehl bearbeiten",
+            "name": "Name",
+            "namePlaceholder": "Name der Option",
+            "command": "Befehl",
+            "commandPlaceholder": "Befehl eingeben",
+            "addButton": "Hinzufügen",
+            "saveButton": "Speichern",
+            "cancelButton": "Abbrechen",
+            "clickToChangeIcon": "Klicken, um das Symbol zu ändern"
+        },
+        "iconPicker": {
+            "title": "Symbol wählen",
+            "searchPlaceholder": "Symbole suchen ...",
+            "noResults": "Keine Symbole gefunden"
+        },
+        "deleteModal": {
+            "title": "Diese Option wirklich löschen?",
+            "cancelButton": "Abbrechen",
+            "deleteButton": "Löschen"
+        },
+        "revertModal": {
+            "title": "Optionen wirklich auf den Standard zurücksetzen?",
+            "cancelButton": "Abbrechen",
+            "revertButton": "Zurücksetzen"
+        }
+    },
+    "menu": {
+        "citizen": "Bürger",
+        "general": "Allgemein",
+        "commands": "Befehle",
+        "vehicle": "Fahrzeug",
+        "doors": "Türen",
+        "seats": "Sitze",
+        "extras": "Extras",
+        "flipVehicle": "Fahrzeug aufrichten",
+        "next": "Weiter",
+        "back": "Zurück",
+        "settings": "Einstellungen",
+        "phone": "Handy",
+        "job": "Beruf",
+        "inventory": "Inventar",
+        "wallet": "Geldbörse",
+        "emotes": "Emotes",
+        "clothes": "Kleidung"
+    },
+    "notifications": {
+        "commandAdded": "Befehl hinzugefügt",
+        "commandDeleted": "Befehl gelöscht",
+        "settingsSaved": "Einstellungen gespeichert"
+    },
+    "details": {
+        "empty": "Wähle eine Option, um Details zu sehen.",
+        "maxOptions": "Höchstens 8 Optionen möglich.",
+        "theme": {
+            "title": "Design",
+            "description": "Ändert das Design des Radialmenüs."
+        },
+        "backgroundBlur": {
+            "title": "Hintergrund-Unschärfe",
+            "description": "Ändert die Unschärfe hinter dem Radialmenü."
+        },
+        "soundEffect": {
+            "title": "Soundeffekte",
+            "description": "Spielt beim Navigieren im Menü einen Ton ab."
+        },
+        "coloredMenu": {
+            "title": "Farbiges Menü",
+            "description": "Passe die Farben des Menüs an.",
+            "selectColor": "Farbe wählen",
+            "presetColors": "Vorgaben"
+        },
+        "radialBehaviour": {
+            "title": "Öffnen",
+            "holdDescription": "Bei Halten ist das Menü offen, solange du die Taste gedrückt hältst.",
+            "pressDescription": "Bei Drücken öffnet ein kurzer Tastendruck das Menü, ESC schließt es."
+        },
+        "scale": {
+            "title": "Menügröße",
+            "description": "Ändert die Größe des Radialmenüs."
+        }
+    },
+    "game": {
+        "common": {
+            "on": "An",
+            "off": "Aus"
+        },
+        "menu": {
+            "citizen": "Bürger",
+            "givecontact": "Kontakt teilen",
+            "trunk_actions": "Kofferraum",
+            "getintrunk": "In den Kofferraum",
+            "putintrunk": "Spieler in den Kofferraum",
+            "interactions": "Interaktionen",
+            "cuff": "Fesseln",
+            "escort": "Abführen",
+            "putinvehicle": "Ins Fahrzeug setzen",
+            "blips_title": "Kartenmarker",
+            "allblipopen": "Alle Marker zeigen",
+            "allblipclose": "Alle Marker ausblenden",
+            "garage": "Garage",
+            "general": "Allgemein",
+            "clothing": "Kleidung",
+            "radialsettings": "Menü-Einstellungen",
+            "commands": "Befehle",
+            "phone": "Handy",
+            "inventory": "Inventar",
+            "wallet": "Geldbörse",
+            "emotes": "Emotes",
+            "police_actions": "Polizei",
+            "emergencybutton": "Notrufknopf",
+            "checkstatus": "Zustand prüfen",
+            "handcuff": "Handschellen",
+            "search_player": "Durchsuchen",
+            "jail": "Ins Gefängnis",
+            "revoke_license": "Führerschein entziehen",
+            "ems_actions": "Rettungsdienst",
+            "revive": "Wiederbeleben",
+            "heal": "Wunden versorgen",
+            "takestretcher": "Trage holen",
+            "removestretcher": "Trage wegräumen",
+            "mechanic_actions": "Mechaniker",
+            "towvehicle": "Abschleppen",
+            "repair": "Reparieren",
+            "clean": "Reinigen",
+            "taxi_actions": "Taxi",
+            "togglemeter": "Taxameter ein/aus",
+            "togglemousemeter": "Taxameter starten/stoppen",
+            "npc_mission": "NPC-Fahrt",
+            "tow_actions": "Abschleppdienst",
+            "togglenpc": "NPC-Aufträge ein/aus",
+            "hotdog_actions": "Hotdog-Stand",
+            "togglesell": "Verkauf ein/aus",
+            "job_actions": "Beruf"
+        },
+        "clothing": {
+            "hair": "Haare",
+            "mask": "Maske",
+            "top": "Oberteil",
+            "gloves": "Handschuhe",
+            "vest": "Weste",
+            "bag": "Tasche",
+            "shoes": "Schuhe",
+            "pants": "Hose",
+            "shirt": "Hemd",
+            "neck": "Halsschmuck",
+            "hat": "Hut",
+            "glasses": "Brille",
+            "ear": "Ohrschmuck",
+            "watch": "Uhr",
+            "bracelet": "Armband"
+        },
+        "vehicle": {
+            "vehicle": "Fahrzeug",
+            "doors": "Türen",
+            "seats": "Sitze",
+            "extras": "Extras",
+            "flip": "Fahrzeug aufrichten",
+            "emergency": "Notruf",
+            "door_fallback": "Tür %s",
+            "driver": "Fahrer",
+            "seat": "Sitz %s",
+            "extra": "Extra %s (%s)",
+            "door_0": "Fahrertür",
+            "door_1": "Beifahrertür",
+            "door_2": "Tür hinten links",
+            "door_3": "Tür hinten rechts",
+            "door_4": "Motorhaube",
+            "door_5": "Kofferraum"
+        },
+        "blip": {
+            "gasstation": "Tankstelle",
+            "barbershop": "Friseur",
+            "clothingshop": "Kleidungsgeschäft",
+            "market": "Laden",
+            "bank": "Bank",
+            "garage": "Garage"
+        },
+        "keymap": {
+            "open": "Radialmenü öffnen",
+            "close": "Radialmenü schließen (Modus Halten)"
+        },
+        "framework": {
+            "notify_title": "Radialmenü",
+            "unemployed": "Arbeitslos",
+            "no_gang": "Keine Gang"
+        },
+        "progress": {
+            "flipping": "Fahrzeug wird aufgerichtet"
+        },
+        "notify": {
+            "no_vehicle": "Kein Fahrzeug in der Nähe",
+            "not_in_vehicle": "Du sitzt in keinem Fahrzeug",
+            "seat_occupied": "Der Sitz ist belegt",
+            "too_fast": "Das Fahrzeug ist zu schnell",
+            "remove_harness": "Löse zuerst den Renngurt",
+            "seat_changed": "Sitz gewechselt",
+            "must_be_driver": "Du musst am Steuer sitzen",
+            "extra_not_exist": "Dieses Extra gibt es nicht",
+            "extra_enabled": "Extra eingeschaltet",
+            "extra_disabled": "Extra ausgeschaltet",
+            "too_far_vehicle": "Zu weit vom Fahrzeug entfernt",
+            "vehicle_flipped": "Fahrzeug aufgerichtet",
+            "flip_cancelled": "Aufrichten abgebrochen",
+            "invalid_clothing": "Ungültiges Kleidungsstück",
+            "invalid_prop": "Ungültiges Accessoire",
+            "item_removed": "%s abgelegt",
+            "item_equipped": "%s angelegt",
+            "nothing_to_toggle": "Nichts zum Umschalten: %s",
+            "too_far_trunk": "Zu weit vom Kofferraum entfernt",
+            "already_in_trunk": "Du bist schon im Kofferraum",
+            "no_trunk_space": "Dieses Fahrzeug hat keinen Kofferraum",
+            "vehicle_type_blocked": "Mit diesem Fahrzeugtyp geht das nicht",
+            "trunk_closed": "Der Kofferraum ist zu",
+            "someone_in_trunk": "Im Kofferraum ist schon jemand",
+            "entered_trunk": "Du bist im Kofferraum, mit E steigst du aus",
+            "exited_trunk": "Aus dem Kofferraum gestiegen",
+            "trunk_must_open": "Der Kofferraum muss offen sein",
+            "trunk_occupied": "Der Kofferraum ist belegt",
+            "no_player_nearby": "Kein Spieler in der Nähe",
+            "putting_in_trunk": "Spieler wird in den Kofferraum gelegt ...",
+            "vehicle_not_found": "Fahrzeug nicht gefunden",
+            "kidnapped": "Du wurdest entführt! Mit E versuchst du zu entkommen",
+            "too_far_target": "Zu weit vom Spieler entfernt",
+            "object_not_found": "Objekt nicht gefunden",
+            "not_near_ambulance": "Kein Rettungswagen in der Nähe",
+            "too_far_away": "Zu weit entfernt",
+            "stretcher_in_use": "Die Trage wird schon benutzt"
+        },
+        "prompt": {
+            "get_out_trunk": "[E] Aus dem Kofferraum steigen",
+            "close_trunk": "[G] Kofferraum schließen",
+            "open_trunk": "[G] Kofferraum öffnen",
+            "try_escape": "[E] Entkommen versuchen",
+            "push_stretcher": "[E] Trage schieben | [H] Feststellen",
+            "stop_pushing": "[E] Nicht mehr schieben",
+            "lay_stretcher": "[G] Auf die Trage legen",
+            "get_closer": "Geh näher heran, um zu schieben",
+            "get_off_stretcher": "[G] Von der Trage steigen"
+        }
+    }
+}

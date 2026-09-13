@@ -118,6 +118,9 @@ Ziel dieser Phase: wissen, was funktioniert, bevor etwas geändert wird.
 - [ ] **Behörden:** Polizei (Handschellen, Gefängnis per xt-prison), Rettungsdienst (Wiederbelebung, Krankenhaus)
 - [ ] **Kriminalität:** Ladenüberfall (Kasse und Tresor), Weed anpflanzen und ernten, Straßenverkauf, Dealer per
       `/newdealer` anlegen und eine Lieferung fahren, Auto mit Dietrich öffnen, Hehler, Alarm kommt bei der Polizei an
+- [ ] **Radialmenü** (`codem-supreme-radialmenu`, F3, Einrichtung in `server-data/resources/[marketplace]/README.md`):
+      startet ohne Escrow-Fehler, deutsche Texte, Kofferraum, Kleidung, Fahrzeugtüren und Sitze, Job-Menüs im Dienst
+      (Polizei, Rettungsdienst, Taxi, Abschlepper), Inventar über den Befehl `+inv`, `qbx_radialmenu` ist gestoppt
 - [ ] **Admin:** qbx_adminmenu, txAdmin (Kick, Bann, Teleport, Spawn von Fahrzeugen)
 - [ ] **Leistung:** `resmon` im Client (F8), Server-Auslastung im txAdmin-Dashboard; Ressourcen mit dauerhaft hoher Last notieren
 - [ ] **Beschriftungen mit echten Produktnamen** notieren (Items, Shops, Handy), siehe [inhalte-regeln.md](inhalte-regeln.md#fremd-ressourcen-prüfen)
@@ -339,7 +342,7 @@ qbx_hud". Die Schritte bauen aufeinander auf.
       `setr ox:primaryShade 3` statt `blue` und `8`. Der Name muss exakt stimmen, ein Tippfehler legt alle
       ox_lib-Oberflächen lahm. Übernehmen: `ox.cfg` ändern, Server neu starten, neu verbinden (nie `restart ox_lib`).
       Testen: Fortschrittsbalken (Füllstand gegen die Spur erkennbar), Eingabedialog mit Checkbox, Auswahl und
-      Bestätigen, Radialmenü. Wirkt der Bestätigen-Button deaktiviert oder der Balken zu blass, zurück zu `blue`/`8`.
+      Bestätigen, Radialmenü von ox_lib (Taste Z, das Radialmenü auf F3 hat eigene Farben). Wirkt der Bestätigen-Button deaktiviert oder der Balken zu blass, zurück zu `blue`/`8`.
 - [ ] **5. Bildschirm-Aufteilung** in `entscheidungen.md` festhalten, in vh, damit sich die getrennten Ressourcen nicht
       überlagern: oben rechts Beruf und Geld (auch ausgeklappt oberhalb von etwa 28vh, das Scoreboard beginnt bei
       30vh), oben mittig Benachrichtigungen, links die Fahrzeug-Hilfe (32vh), neben der Minimap Status, darüber die
@@ -474,7 +477,7 @@ bekommen die Anbindung später.
 - [ ] **Stufen:** Level-Kurve mit steigendem XP-Bedarf und Obergrenze (z. B. Level 10) in der Config
 - [ ] **Wirkung** nach **Entscheidung** Fähigkeiten: kürzere Fortschrittsbalken, leichtere `lib.skillCheck`, seltener
       Fehlschlag, mehr Ausbeute
-- [ ] **Anzeige:** Eintrag im Radialmenü (`qbx_radialmenu`) oder Befehl öffnet ein `lib.registerContext`-Menü mit
+- [ ] **Anzeige:** Eintrag im Radialmenü (Client-Export `AddMenuItem` von `codem-supreme-radialmenu`) oder Befehl öffnet ein `lib.registerContext`-Menü mit
       Fortschrittsbalken pro Fähigkeit, Hinweis beim Aufstieg per `lib.notify`
 - [ ] **Admin-Befehl** zum Setzen und Zurücksetzen für Tests: `lib.addCommand` mit `restricted = 'group.admin'`
 - [ ] **Texte** in `locales/de.json`
@@ -618,6 +621,8 @@ Stand im Rezept, geprüft am 13.09.2026:
       nicht über Git mit
 - [ ] **Entscheidung** Datenbank: frisch starten (empfohlen, Testdaten bleiben lokal) oder Dump vom PC übernehmen
 - [ ] Große Assets (Weg E) auf den Server bringen
+- [ ] Assets aus `[marketplace]` auf dem VPS aus dem Cfx-Portal laden und nach `server-data/resources/[marketplace]/README.md`
+      einrichten. Sie sind nicht in Git und kommen mit `deploy.sh` nicht mit
 - [ ] Deploy per GitHub Actions ([linux-server.md](linux-server.md#deploy-per-github-actions))
 - [ ] Backups: Datenbank-Dump regelmäßig ([linux-server.md](linux-server.md#backup),
       [datenbank.md](datenbank.md#backup-und-wiederherstellung)), `txData/` mitsichern, **Wiederherstellung einmal testen**
@@ -656,8 +661,9 @@ Nur Lore-Marken und eigene Designs, keine echten Fahrzeuge oder Marken, auch nic
 - [ ] **Weg E festlegen**, bevor die erste große Datei kommt. Git scheidet aus (GitHub blockt Dateien über
       100 MiB, LFS hat Kontingente). Optionen: von Hand bzw. per `rsync` nach `[vendor]` (gitignored, Liste der
       Pakete in einer committeten Datei), oder zip-Zeile auf einen eigenen Download-Speicher
-- [ ] Bezahlte Ressourcen mit Asset Escrow sind an den Cfx.re-Account gebunden, dem der Lizenzschlüssel gehört;
-      vor einem Kauf klären, welcher Account den Server-Key besitzt
+- [ ] Assets mit Asset Escrow sind an den Cfx.re-Account gebunden, dem der Lizenzschlüssel gehört. Prüfen, ob der Key in
+      `secrets.cfg` zu dem Account gehört, mit dem die Assets in `[marketplace]` geholt wurden (`codem-supreme-radialmenu`
+      gekauft, `electus_black_market` kostenlos). Sonst startet FXServer sie nicht. Vor jedem weiteren Kauf dasselbe klären
 
 ## Phase 9: Freizeit und Minispiele
 
@@ -716,7 +722,7 @@ als großer Eigenbau, das kostenlose `alberttheprince/FiveM-Golf` hat keine Lize
 | 1 | Wie viele Spieler sind realistisch gleichzeitig online, und wer spielt Polizei und Rettungsdienst? | Überfälle brauchen Gegenspieler, Schwellen in Phase 6 | Niedrige Polizei-Schwellen; fehlende Rollen übernehmen NPCs ([Leitstelle](#leitstelle-und-npc-dienste), Grundsatz entschieden 13.09.2026) |
 | 2 | ~~Wie viel Kriminalität soll es geben?~~ | | **Entschieden 13.09.2026:** Berufe und Kriminalität von Anfang an, siehe Phase 6 |
 | 3 | Wirtschaft locker oder hart? | Startgeld, Gehälter, Preise, Kosten für Autos und Wohnungen | Eher hart, damit Jobs Sinn haben; Werte nach 2 Wochen Spielzeit nachjustieren |
-| 4 | Bezahlte Ressourcen (Tebex) ja oder nein, Budget? | Viele Innenräume und gute Jobs sind kostenpflichtig; Escrow bindet an einen Account | Zunächst nein, Lücken mit eigenen Ressourcen füllen. **Minispiele entschieden 13.09.2026:** nur kostenlos ([Phase 9](#phase-9-freizeit-und-minispiele)) |
+| 4 | Bezahlte Ressourcen (Tebex) ja oder nein, Budget? | Viele Innenräume und gute Jobs sind kostenpflichtig; Escrow bindet an einen Account | Zunächst nein, Lücken mit eigenen Ressourcen füllen. **Minispiele entschieden 13.09.2026:** nur kostenlos ([Phase 9](#phase-9-freizeit-und-minispiele)). **Überholt am 13.09.2026:** Luca hat `codem-supreme-radialmenu` gekauft, Ablage in `[marketplace]`. Budget und Grenze für weitere Käufe neu festlegen |
 | 5 | Wohin mit großen Assets (Weg E)? | Muss stehen, bevor Fahrzeuge oder Innenräume kommen | `rsync` nach `[vendor]` plus committete Paketliste |
 | 6 | Handy bei npwd bleiben? | Wechsel später kostet Daten und Apps | Bleiben (aktiv gepflegt, letzter Push August 2026) |
 | 7 | Projektname und Discord? | Pflicht-Hinweis, Logo, Allowlist-Ablauf | Name vor Phase 3 festlegen |

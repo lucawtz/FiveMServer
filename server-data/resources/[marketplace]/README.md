@@ -19,6 +19,7 @@ nur die gefundenen Ressourcen durch).
 | Ordner                 | Asset                | Version | Kosten    | Quelle |
 |------------------------|----------------------|---------|-----------|--------|
 | `electus_black_market` | Electus Black Market | 1.0.1   | kostenlos | [Marketplace](https://marketplace.cfx.re/packages/7426640-electus-black-market), [Doku](https://docs.electus-scripts.com/docs/blackmarket/installation) |
+| `codem-supreme-radialmenu` | CodeM Supreme Radial Menu | 1.1 | gekauft | [Cfx-Portal](https://portal.cfx.re/), Download vom 13.09.2026 |
 
 ## electus_black_market einrichten
 
@@ -98,6 +99,67 @@ Im Spiel:
 - Verwalten mit `/manage_black_market`. Das dürfen Admins: `permissions.cfg` gibt `group.admin` mit
   `add_ace group.admin command allow` alle Befehle.
 - Käufe stehen in der Tabelle `electus_black_market_transactions`.
+
+## codem-supreme-radialmenu einrichten
+
+Radialmenü mit eigener Oberfläche auf F3. Es ersetzt `qbx_radialmenu`: Kofferraum, Fesseln und Abführen,
+Kleidung ablegen, Fahrzeug (Türen, Sitze, Extras, Aufrichten), Kartenmarker, eigene Befehle und Job-Menüs. Braucht nur
+`ox_lib` und erkennt Qbox selbst. Keine SQL-Datei, keine zusätzlichen Modelle (die Trage ist ein GTA-Objekt). Auf jedem
+Rechner, auf dem der Server läuft, einmal:
+
+1. Asset im [Cfx-Portal](https://portal.cfx.re/) bei deinen Assets herunterladen, mit dem Account, dem der
+   Lizenzschlüssel gehört, und nach `server-data/resources/[marketplace]/codem-supreme-radialmenu/` entpacken. Die
+   `fxmanifest.lua` liegt direkt darin.
+2. Deutsche Texte: `.anpassungen/codem-supreme-radialmenu/locales/de.json` nach
+   `codem-supreme-radialmenu/locales/de.json` kopieren. Die Datei ist vollständig, das muss so bleiben: Die Oberfläche
+   bekommt sie ohne Rückfall auf Englisch. `settings.title` ist der Name oben in den Einstellungen, beim Festlegen des
+   Projektnamens mit ändern.
+3. In `codem-supreme-radialmenu/shared/config.lua` ändern:
+
+   | Einstellung              | Standard                                           | Hier            | Grund |
+   |--------------------------|----------------------------------------------------|-----------------|-------|
+   | `Locale`                 | `"en"`                                             | `"de"`          | deutsche Texte |
+   | `DefaultCommands`        | `/phone`, `/inventory`, `/wallet`, `/emotes`       | Block unten     | nur `/phone` gibt es auf diesem Server |
+
+   ```lua
+   DefaultCommands = {
+       { labelKey = "game.menu.phone",     label = "Phone",     icon = "phone",      command = "/phone" },
+       { labelKey = "game.menu.inventory", label = "Inventory", icon = "box",        command = "/+inv" },
+       { labelKey = "game.menu.emotes",    label = "Emotes",    icon = "face-smile", command = "/emotemenu" },
+   },
+   ```
+
+   `/phone` kommt aus npwd, `+inv` ist der Tastenbefehl von ox_inventory (wie Tab), `/emotemenu` kommt aus
+   scully_emotemenu. Die Liste ist nur der Startwert, jeder Spieler kann sie in den Einstellungen ändern.
+4. In `codem-supreme-radialmenu/shared/items.lua` die Einträge löschen, deren Event auf diesem Server niemand empfängt
+   (ein Klick täte nichts). Geprüft am 13.09.2026 gegen die Qbox-Quellen:
+
+   | Eintrag                     | Menü       | Event ohne Empfänger |
+   |-----------------------------|------------|----------------------|
+   | `givecontact`               | Bürger     | `qb-phone:client:GiveContactDetails` (npwd hat das nicht) |
+   | `takedriverlicense`         | Polizei    | `police:client:SeizeDriverLicense` |
+   | `repair` und `clean`        | Mechaniker | `mechanic:client:RepairVehicle`, `mechanic:client:CleanVehicle` |
+   | ganzer Block `['hotdog']`   | Hotdog     | `qb-hotdogjob:client:ToggleSell` (keine Hotdog-Ressource installiert) |
+
+   Lua erlaubt ein Komma nach dem letzten Eintrag, beim Löschen muss also kein Komma angepasst werden.
+5. Server neu starten. `server.cfg` hält `qbx_radialmenu` direkt nach `ensure [marketplace]` per `stop` an. Fehlt das
+   Asset auf einem Rechner, dort die Zeile `stop qbx_radialmenu` auskommentieren, sonst gibt es kein Radialmenü.
+
+Im Spiel:
+
+- F3 öffnet das Menü. Im Modus "Halten" schließt Loslassen es, im Modus "Drücken" ESC. Umstellen, Design, Größe und
+  eigene Befehle unter `/radialsettings` oder im Menü unter Allgemein. Die Taste lässt sich in GTA unter Einstellungen,
+  Tastenbelegung, FiveM ändern.
+- Job-Menüs erscheinen nur im Dienst und nur für die Jobnamen `police`, `ambulance`, `mechanic`, `taxi` und `tow`
+  (Schlüssel von `JobInteractions` in `items.lua`). `bcso` und `sasp` haben kein Menü. Bei Bedarf den Block
+  `['police']` kopieren und Schlüssel und `id` umbenennen. "Abschleppen" wirkt nur im Abschleppwagen.
+- `/getintrunk` und `/putintrunk` darf jeder Spieler nutzen. Der Server prüft beim Hineinlegen nur, ob der andere
+  Spieler weniger als 2 Meter entfernt ist.
+- Z öffnet weiterhin das Radialmenü von ox_lib, dort steht nur noch der Emote-Eintrag von scully_emotemenu. Wer nur
+  ein Radialmenü will: `setr scully_emotemenu:enableRadialMenu "false"` (nicht umgesetzt).
+- Gegenüber `qbx_radialmenu` fehlt das Öffnen und Schließen der Fenster.
+- Eigene Ressourcen hängen Einträge über die Client-Exports `AddMenuItem` und `RemoveMenuItem` ein, nicht über
+  `lib.addRadialItem`.
 
 ## Neues Asset hinzufügen
 

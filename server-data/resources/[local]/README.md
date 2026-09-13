@@ -1,13 +1,14 @@
 # Eigene Ressourcen: `[local]`
 
 In diesem Ordner liegen deine eigenen Ressourcen. Er ist der einzige Ordner unter
-`server-data/resources/`, der in Git eingecheckt wird:
+`server-data/resources/`, dessen Ressourcen in Git eingecheckt werden:
 
 | Ordner           | Inhalt                                             | In Git? |
 |------------------|----------------------------------------------------|---------|
 | `[local]`        | Deine eigenen Skripte (dieser Ordner)              | ja      |
 | `[cfx-default]`  | Standard-Ressourcen aus cfx-server-data            | nein, Installer |
 | `[vendor]`       | Fremd-Ressourcen aus `server-data/resources.txt`   | nein, Installer |
+| `[marketplace]`  | Assets aus dem Cfx Marketplace, von Hand entpackt  | nur `README.md` und `.anpassungen/` |
 
 FXServer durchsucht alle Ordner in eckigen Klammern rekursiv. Der Name einer
 Ressource ist immer der Name ihres Ordners, nicht der Pfad.

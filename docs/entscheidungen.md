@@ -358,6 +358,26 @@ tauscht das Ziel erst nach Erfolg aus; bei einem Netzfehler bleibt der alte Ordn
 `install-resources.ps1` lädt zip-Ziele ebenfalls erst in einen Temp-Ordner und ersetzt danach; nur git-Ziele
 löscht es vor dem Neuklonen (`Entferne '<ziel>' (-Force) ...`).
 
+## Marketplace-Assets
+
+**Eigener Ordner `[marketplace]` statt `[vendor]` oder `resources.txt`.** Assets aus dem Cfx Marketplace kommen über
+das Cfx-Portal, nicht über eine öffentliche URL, und sind per Asset Escrow (`.fxap`) an den Cfx.re-Account des
+Lizenzschlüssels gebunden. Das Repo ist öffentlich, ein Commit wäre eine Weitergabe. Unter `[vendor]` verstießen die
+nötigen Config-Änderungen gegen die Regel, dort nichts zu ändern, und `copy`-Zeilen gehen nicht, weil `--check` für
+Ziele unter `[vendor]` eine frühere git- oder zip-Zeile verlangt. Deshalb ist `[marketplace]` gitignored bis auf die
+README und `.anpassungen/`: Dort liegen eigene Dateien wie Übersetzungen, die README beschreibt die Config-Änderungen
+pro Asset. Die Installer fassen den Ordner nicht an. SQL-Dateien der Assets stehen nicht in `database.txt`, sonst
+bräche `setup-database` auf Rechnern ohne das Asset mit Exit 3 ab.
+
+**`codem-supreme-radialmenu` ersetzt `qbx_radialmenu`.** Beide belegen Kleidung, Fahrzeugtüren und Kofferraum.
+`qbx_radialmenu` bleibt in `resources.txt` und wird in `server.cfg` direkt nach `ensure [marketplace]` per `stop`
+angehalten. So bekommt ein Rechner ohne das Asset das alte Menü durch Auskommentieren einer Zeile zurück. Geprüft am
+13.09.2026: Keine der 47 Qbox-git-Ressourcen und keine der geprüften zip-Ressourcen (ox, npwd, illenium-appearance,
+Renewed-Banking, vehiclehandler, xt-prison, qbx_core) trägt `qbx_radialmenu` als Abhängigkeit ein oder ruft seine
+Exports auf. `illenium-appearance` nutzt es nur mit `Config.UseRadialMenu = true` (Standard `false`).
+`scully_emotemenu` hängt seinen Eintrag weiter ins Radialmenü von ox_lib (Taste Z). Job-Einträge des Assets, deren
+Events in Qbox niemand empfängt, werden laut README gelöscht.
+
 ## Bekannte Grenzen / ungetestet
 
 - Auf Windows 11 mit Windows PowerShell 5.1 liefen am 13.09.2026 `install.ps1` (Artifacts 35245, 80 von 80
@@ -380,6 +400,8 @@ löscht es vor dem Neuklonen (`Entferne '<ziel>' (-Force) ...`).
   Startargument und einmal zur Laufzeit, und der leere Wert zählt nicht als Argument. Harmlos, mit
   eingeschalteter Allowlist und Ablehnungstext sollte die Meldung verschwinden.
 - Die Spielbarkeit von Qbox (Charaktererstellung, Jobs, Handy) ist nicht im Spiel verifiziert.
+- `codem-supreme-radialmenu` ist nicht im Spiel getestet, auch nicht, ob der Befehl `+inv` aus dem Menü das Inventar
+  öffnet. Die Zuordnung der Job-Events stammt aus dem Quellcode der Qbox-Ressourcen (Stand `main` am 13.09.2026).
 - Git-Ressourcen auf `main` und zip-Ressourcen auf `releases/latest` bewegen sich: ein Deploy kann Stände
   zusammenbringen, die nicht zueinander passen (siehe [ressourcen.md](ressourcen.md#fester-stand-oder-immer-aktuell)).
 - Fremd-Ressourcen können Namen echter Produkte oder Dienste enthalten, siehe [inhalte-regeln.md](inhalte-regeln.md).

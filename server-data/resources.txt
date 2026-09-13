@@ -104,6 +104,7 @@ git [vendor]/[qbx]/qbx_lapraces https://github.com/qbox-project/qbx_lapraces.git
 git [vendor]/[qbx]/qbx_garages https://github.com/qbox-project/qbx_garages.git main
 git [vendor]/[qbx]/qbx_ambulancejob https://github.com/qbox-project/qbx_ambulancejob.git main
 git [vendor]/[qbx]/qbx_medical https://github.com/qbox-project/qbx_medical.git main
+# Wird in server.cfg per stop angehalten, solange codem-supreme-radialmenu aus [marketplace] das Radialmenue stellt
 git [vendor]/[qbx]/qbx_radialmenu https://github.com/qbox-project/qbx_radialmenu.git main
 git [vendor]/[qbx]/qbx_police https://github.com/qbox-project/qbx_police.git main
 git [vendor]/[qbx]/qbx_properties https://github.com/qbox-project/qbx_properties.git main

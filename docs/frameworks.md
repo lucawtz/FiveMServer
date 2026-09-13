@@ -120,6 +120,10 @@ committete Konfiguration, deshalb unterscheidet sich Folgendes:
 - **Eigene Ressource `spielerinfo`.** `qbx_hud` zeigt Geld nur kurz bei Änderungen oder nach `/cash` und `/bank`.
   `[local]/spielerinfo` zeigt rechts ein Panel mit Beruf, Dienst, Einkommen, Zeit bis zur nächsten Zahlung,
   Bargeld und Konto, `F7` klappt es aus und ein.
+- **`stop qbx_radialmenu`, Radialmenü aus `[marketplace]`.** `qbx_radialmenu` wird weiter installiert, `server.cfg`
+  hält es aber nach `ensure [marketplace]` an. Das gekaufte Asset `codem-supreme-radialmenu` (F3) übernimmt
+  Kleidung, Fahrzeug, Kofferraum und Job-Menüs. Einrichtung und Grenzen in
+  `server-data/resources/[marketplace]/README.md`, Begründung in [entscheidungen.md](entscheidungen.md#marketplace-assets).
 
 ## Qbox aktualisieren
 

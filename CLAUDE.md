@@ -41,6 +41,7 @@ Kontext und Regeln für Claude-Code-Sitzungen in diesem Repo. Gilt auf jedem Rec
 | `server-data/database.txt` | SQL-Manifest in Import-Reihenfolge, Option `rerun` nur für idempotente Dateien |
 | `server-data/resources/[local]/` | eigene Ressourcen (committet) |
 | `server-data/resources/[cfx-default]/`, `[vendor]/` | von den Installern befüllt, gitignored; `[vendor]/.sources` sind Quell-Repos, keine Ressourcen |
+| `server-data/resources/[marketplace]/` | Assets aus dem Cfx Marketplace (Asset Escrow, gekauft oder kostenlos), von Hand entpackt und gitignored; committet sind nur `README.md` (Einrichtung pro Asset) und `.anpassungen/` (z. B. Übersetzungen) |
 | `scripts/windows/` | `install.bat`/`.ps1`, `install-resources.ps1`, `setup-database.bat`/`.ps1`, `start.bat`, `start-direct.bat` |
 | `scripts/linux/` | `lib.sh` (gemeinsame Funktionen), `install.sh`, `deploy.sh`, `install-resources.sh`, `update-artifacts.sh`, `setup-database.sh`, systemd-Vorlage |
 | `docker/` | Dockerfile, `docker-compose.yml` (fxserver + db), `entrypoint.sh` |
@@ -125,6 +126,8 @@ Auf Windows mindestens die geänderten `.ps1` parsen, z. B.
 - Rezept-Fehler: `cola` in der Fahrzeug-Beute (`ox.cfg`) und in den Shops (`[local]/[overrides]/shops.lua`) ist
   durch `sprunk` ersetzt; das Item `markedbills` fehlt noch
   (`docs/checkliste.md`, Phase 6).
+- `server.cfg` stoppt `qbx_radialmenu`, das Radialmenü kommt aus `[marketplace]/codem-supreme-radialmenu`. Auf einem
+  Rechner ohne das Asset die `stop`-Zeile auskommentieren. Gekaufte Dateien nie committen, das Repo ist öffentlich.
 - `set qbx:cleanPlayerGroups "true"` entfernt beim Start Jobs, die `qbx_core` nicht kennt. Eigene Jobs deshalb in
   `qbx_core/shared/jobs.lua` (siehe Checkliste).
 - Qbox-Quellen stehen wie im Rezept auf `main` bzw. `releases/latest` und können sich bei jedem Update ändern.

@@ -1,12 +1,13 @@
 # Ressourcen: resources.txt, [local], [vendor]
 
-## Drei Ordner unter server-data/resources/
+## Vier Ordner unter server-data/resources/
 
 | Ordner           | Inhalt                                                 | In Git | Gefüllt von                                   |
 |------------------|--------------------------------------------------------|--------|-----------------------------------------------|
 | `[local]`        | Deine eigenen Ressourcen, z. B. `hello-world`          | ja     | dir                                           |
 | `[cfx-default]`  | Standard-Ressourcen aus `citizenfx/cfx-server-data`    | nein   | `install-resources.ps1` / `install-resources.sh` |
 | `[vendor]`       | Qbox und Fremd-Ressourcen aus `server-data/resources.txt` | nein | dieselben Skripte                              |
+| `[marketplace]`  | Assets aus dem Cfx Marketplace (Asset Escrow, gekauft oder kostenlos) | nur `README.md` und `.anpassungen/` | dir, Ablauf in `server-data/resources/[marketplace]/README.md` |
 
 So sieht `[vendor]` nach der Installation aus (Inhalt der Kategorien: [frameworks.md](frameworks.md#was-installiert-ist)):
 
@@ -285,8 +286,11 @@ Tebex-Download. Optionen:
   findet die Ressourcen darin rekursiv.
 - Ressource liegt im Repo in einem Unterordner: in einen Klammer-Ordner klonen, wie
   `git [vendor]/[standalone]/[MugShotBase64] https://github.com/BaziForYou/MugShotBase64.git main`.
-- Kein öffentlicher Download: Ressource manuell nach `[vendor]/<name>/` legen (bleibt gitignored) oder,
-  wenn du sie selbst pflegst, nach `[local]/<name>/` (wird committet, Lizenz beachten).
+- Kein öffentlicher Download (Cfx Marketplace, gekauft oder kostenlos): nach `[marketplace]/<name>/` entpacken, nicht
+  nach `[vendor]`. Der Ordner ist gitignored, eigene Dateien wie Übersetzungen liegen committet in
+  `[marketplace]/.anpassungen/<name>/`, die nötigen Config-Änderungen stehen pro Asset in
+  `server-data/resources/[marketplace]/README.md`. Ressourcen, die du selbst pflegst und deren Lizenz es erlaubt,
+  gehören nach `[local]/<name>/` (wird committet).
 - Eigene Forks: in ein eigenes Git-Repo legen und als `git`-Eintrag mit Tag referenzieren, dann ist der Stand
   reproduzierbar.
 
