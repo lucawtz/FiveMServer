@@ -87,14 +87,15 @@ Deshalb eine der beiden Varianten:
       (13.09.2026 unter `C:\Code\FiveMServer`: Artifacts 35245, 80 von 80 Manifest-Einträgen installiert)
 - [x] `setup-database.bat -InstallMariaDB`, danach `setup-database.bat -Create -Import`
       (13.09.2026: MariaDB 12.3.3, 9 SQL-Dateien importiert)
-- [ ] Key in `server-data\secrets.cfg` eintragen
+- [x] Key in `server-data\secrets.cfg` eintragen (13.09.2026, Anmeldung beim Start erfolgreich)
 - [x] `start.bat`, txAdmin mit "Existing Server Data" einrichten (13.09.2026, alle Ressourcen starten, Datenbank verbunden)
 - [ ] `connect localhost:30120`, Charakter anlegen, `/hallo` testen
 - [ ] Dich zum Admin machen (`add_principal` in `server.cfg`, Abschnitt "Admin-Rechte"), `/admin` testen
 - [ ] License Allowlist in txAdmin einschalten ([linux-server.md](linux-server.md#nur-freunde-zulassen-license-allowlist))
 - [ ] Ein Freund verbindet sich, im LAN und über das Internet
 - [ ] Fehlermeldungen und Abweichungen notieren, danach "Bekannte Grenzen" in [entscheidungen.md](entscheidungen.md) aktualisieren
-- [ ] CI-Lauf der letzten Pushes auf GitHub ansehen (Actions-Tab)
+- [x] CI-Lauf der letzten Pushes auf GitHub ansehen (Actions-Tab), 13.09.2026: alle 6 Läufe grün
+- [x] Repo öffentlich gemacht (13.09.2026), Historie vorher auf Geheimnisse geprüft
 
 ## Phase 1: Vorhandenes im Spiel testen
 
@@ -124,9 +125,28 @@ Notiert von Luca beim ersten Einloggen, Ursachen noch nicht untersucht.
 
 | # | Bereich | Beobachtung | Soll |
 |---|---------|-------------|------|
+| 1 | Einstieg | Nach dem Verbinden gibt es keine Anleitung. | Neue Spieler bekommen zuerst eine Einführung, in der alles verständlich erklärt ist (siehe Phase 3). |
+| 2 | Charakter | Die Charakterauswahl funktioniert, wirkt aber unstrukturiert. | Übersichtlicher Ablauf bei Auswahl und Erstellung. |
+| 3 | Apartment | Spawn-Ort und Apartment lassen sich auswählen, danach zeigt die Karte aber viele Apartments als eigenes Eigentum an. | Nur ein Apartment wählbar, und nur dieses gehört dem Spieler. |
+| 4 | Apartment | Beim Verlassen des Gebäudes landet man im Aufzug und muss mehrmals rein und raus, bis man draußen ist. | Ein Ausgang, der direkt nach draußen führt. |
+| 5 | Waffenladen | Im Ammu-Nation steht kein NPC, bei dem man eine Waffe kaufen kann. | Verkäufer bzw. Shop-Punkt vorhanden, Kauf möglich. |
 | 6 | Bedienung | Beim Parken steht der Hinweis "E - Garage öffnen" klein am rechten Bildschirmrand und fällt nicht auf. | Bei allen Interaktionen ist der Hinweis sofort sichtbar, z. B. unten mittig und deutlicher hervorgehoben. |
 | 7 | Fahrzeughändler | Nach der Probefahrt beim Premium Deluxe Motorsport liegt der Charakter tot vor dem Eingang. | Nach der Probefahrt steht man unverletzt am Händler, das Testfahrzeug ist weg. |
+| 8 | Fahrzeug | Im Auto sieht man nicht, welche Tasten es gibt und was man machen kann. | Im Fahrzeug eine Übersicht der Tasten und Möglichkeiten, am besten ausklappbar. |
+| 9 | Bedienung | Benachrichtigungen oben rechts (z. B. "Das Inventar wurde erfolgreich geladen") sind gut, aber zu klein und verschwinden zu schnell. | Größere Schrift und Box, länger sichtbar, sodass man sie in Ruhe lesen kann. |
+| 10 | Geld | Bargeld und Kontostand sind nirgends zu sehen. | Geld jederzeit ablesbar, dauerhaft im HUD oder auf Tastendruck. |
+| 11 | Geld | Alle 10 Minuten kommt Gehalt, obwohl man nichts macht und keinen Beruf gewählt hat. Unklar, wofür. | Klar erkennbar, wofür Geld kommt. **Entscheidung**, ob es ein Grundeinkommen ohne Job gibt. |
+| 12 | Fahrzeughändler | Die Restzeit der Probefahrt steht nur in Sekunden da ("Verbleibende Zeit der Probefahrt:293"), ohne Leerzeichen, mitten über dem Auto. | Anzeige als Minuten und Sekunden (4:53), gut lesbar am Bildschirmrand. |
+| 13 | Rettungsdienst | Am Boden steht nur "Du blutest aus in: 27 Sekunden", man kann nichts tun und keinen Notruf absetzen. | Am Boden lässt sich jederzeit ein Notruf absetzen, gut sichtbar mit Taste, und er erreicht auch jemanden. |
 
+- [ ] Befunde 3 bis 5 untersuchen (Ursache in `qbx_properties`, `qbx_spawn` bzw. den Shops von `ox_inventory`)
+  - Befund 3: In der Datenbank gehört dem Charakter nur ein Apartment. `qbx_properties`
+    (`client/property.lua`) setzt aber für jede Apartment-Option ein grünes Haus-Symbol, bei allen Spielern.
+    Änderung nur im Code möglich, das Repo hat keine Releases: Fork nötig (Weg C).
+  - Befund 4: Apartment `4IntegrityWayApt30`, der Ausgang setzt den Spieler auf den Eingangspunkt
+    `-47.52, -585.86, 37.95` aus `config/shared.lua`. Ob dieser Punkt im Aufzug liegt, im Spiel prüfen.
+  - [x] Befund 5: Der Ammunation hatte nur eine unsichtbare Zielzone an der Theke (linke Alt-Taste). Eigene
+    `shops.lua` mit Verkäufern (Weg B), im Spiel testen. Pistole braucht den Waffenschein (`licences.weapon`).
 - [ ] Logs vom 13.09.2026 auswerten (Server: `txData/default/logs/fxserver.log`, Client:
       `%LOCALAPPDATA%\FiveM\FiveM.app\logs\CitizenFX_log_*.log`). Nach Wichtigkeit:
   - **Handy (npwd):** Server meldet beim Anlegen des Charakters `Cannot read properties of null (reading
@@ -157,6 +177,18 @@ Notiert von Luca beim ersten Einloggen, Ursachen noch nicht untersucht.
   - [ ] Im Spiel testen: Garage, Kleidungsladen (illenium-appearance), ein Job. Überdeckt der Hinweis im
         Fahrzeug den Tacho von `qbx_hud`? Dann `marginBottom` in der Datei anpassen.
   - [ ] Interaktionen über `ox_target` (linke Alt-Taste) sind eine andere Anzeige, getrennt bewerten.
+- [ ] Befund 9 beheben: Die Meldungen kommen von `lib.notify` (`ox_lib`). Die Anzeigedauer ist 3 Sekunden, wenn die
+      aufrufende Ressource keine `duration` mitgibt (`web/build`, `n.duration||3e3`), die Position `top-right` ist
+      eine Client-Einstellung (`resource/settings.lua`). Einen Convar für Dauer oder Größe gibt es nicht. Zentral
+      lösbar zusammen mit Befund 6 über einen Override von `resource/interface/client/notify.lua` (Weg B): ohne
+      angegebene Dauer z. B. 6 bis 8 Sekunden setzen und über das Feld `style` Schriftgröße und Breite erhöhen.
+      Ressourcen mit eigener kurzer `duration` bleiben davon unberührt, bei Bedarf eine Mindestdauer erzwingen.
+- [ ] Befund 12 beheben: `qbx_vehicleshop` (`client/main.lua`, `startTestDriveTimer`) zeichnet jeden Frame
+      `locale('general.testdrive_timer')..math.ceil(...)` per `qbx.drawText2d` an `vec2(1.0, 1.38)` mit Größe
+      0.5. Der deutsche Text hat kein Leerzeichen am Ende, der englische schon. Eine eigene Anzeige in
+      `[local]/probefahrt` (Befund 7) könnte `m:ss` zeigen, die alte Zeile lässt sich von außen aber nicht
+      abschalten, man sähe beide. Sauber nur im Code (Weg C, Fork, das Repo hat keine Releases): Format `m:ss`,
+      Anzeige am Rand oder als kleines Panel. Mit dem Fork für das Autohaus-Sortiment (Phase 4) zusammenlegen.
 - [x] Befund 7: Nach 5 Minuten (`testDrive.limit`, `endBehavior = 'return'`) setzt `qbx_vehicleshop`
       (`server/main.lua`) den Spieler per `SetEntityCoords` auf `returnLocation` `-32.77, -1095.75, 26.42` und
       löscht danach das Fahrzeug, ohne ihn vorher aussteigen zu lassen. Die genaue Todesursache steht in keinem
@@ -164,6 +196,31 @@ Notiert von Luca beim ersten Einloggen, Ursachen noch nicht untersucht.
       `[local]/probefahrt` (Weg D) hält das Fahrzeug 3 Sekunden vor dem Ende an, lässt den Spieler aussteigen und
       macht ihn 8 Sekunden unverwundbar (`config.lua`).
   - [ ] Im Spiel testen: Probefahrt bis zum Ende mit Tempo durchfahren, Spieler steht danach lebend am Händler.
+- [ ] Befund 13 beheben: Den Notruf gibt es schon, er ist nur fast nie sichtbar. `qbx_ambulancejob`
+      (`client/setdownedstate.lua`, `handleLastStand`) zeigt "Drücke [G] für eine hilfeanfrage" nur, wenn
+      mindestens ein Spieler mit Job-Typ `ems` im Dienst ist, und erst ab 300 Sekunden Restzeit (`laststandTimer`
+      in `config/client.lua`, die Blutungszeit ist 360 Sekunden, `laststandReviveInterval` in `qbx_medical`).
+      Ohne Sanitäter im Dienst erscheint nur der Countdown, wie im Screenshot. Beim Hinfallen geht außerdem
+      automatisch "Zivilist Down" an alle Sanitäter im Dienst (`qbx_medical:server:onPlayerLaststand`), auch das
+      verpufft ohne Sanitäter. Der Chat bleibt am Boden bedienbar (`qbx_medical`, `client/dead.lua`), `/911e
+      <Text>` (Rettungsdienst) und `/911p <Text>` (Polizei) funktionieren also schon, sind aber nirgends erklärt.
+      Ob das Handy (npwd) am Boden aufgeht, ist offen, weder `npwd` noch `qbx_npwd` prüfen den Zustand.
+      Bei 5 bis 15 Spielern ist selten jemand im Rettungsdienst. **Entscheidung:**
+  - Weg D, eigene Ressource `[local]/notruf`: am Boden immer ein deutlicher Hinweis "G: Notruf", unabhängig vom
+    Dienststatus. Sind Sanitäter im Dienst, geht der Alarm an sie. Ist niemand im Dienst, kommt nach kurzer
+    Wartezeit ein NPC-Rettungsdienst (Fahrzeug fährt vor, Wiederbelebung gegen Gebühr, z. B. wie
+    `sharedConfig.checkInCost`) oder man wird ins Krankenhaus gebracht. Die Anzeige von `qbx_ambulancejob` läuft
+    weiter, zwei Texte übereinander vermeiden (eigene Anzeige an anderer Stelle oder Weg C).
+  - Einfacher Anfang: nur Hinweis und Befehl `/notruf` in der Einführung (Befund 1) erklären, NPC-Rettung später.
+  - [ ] Im Spiel prüfen: Handy am Boden öffnen und anrufen, `/911e` am Boden absetzen.
+- [x] Befund 8: eigene Ressource `[local]/fahrzeughilfe` (Weg D). Im Fahrzeug erscheint links ein Panel mit den
+      Tasten für Fahren, Fahrzeug und Weiteres, `F6` klappt es aus und ein, das Spiel merkt sich die Wahl. Die
+      Tasten werden live ausgelesen, geänderte Belegungen stimmen also. Im Spiel testen, vor allem Symbol-Tasten
+      (Leertaste) und die Position neben HUD und Minimap.
+  - Dabei gefunden: "Motor an/aus" (`qbx_vehiclekeys`) hat keine Standard-Taste, weil `config.keySearchBind` in
+    dessen Config fehlt. Die Hilfe zeigt "nicht belegt". Taste festlegen (Weg C) oder Spielern den Weg über
+    Einstellungen > Tastenbelegung > FiveM erklären.
+- [ ] Befunde 1 und 2 bei der Planung von Phase 3 berücksichtigen
 
 ## Phase 2: Entscheiden und aufräumen
 
@@ -187,6 +244,8 @@ Notiert von Luca beim ersten Einloggen, Ursachen noch nicht untersucht.
       `sets sv_projectDesc` in `secrets.cfg` ([inhalte-regeln.md](inhalte-regeln.md#erlaubt-lore-marken-und-eigene-designs))
 - [ ] Eigenes Logo: Server-Icon 96x96 PNG (`load_server_icon`), Ladebildschirm-Logo (Weg B für `loadscreen`) und Farben (`loadscreen:*`-Convars)
 - [ ] Begrüßung `qbx:motd` und Chat-Meldungen
+- [ ] Einführung für neue Spieler direkt nach dem ersten Einloggen: verständliche Anleitung zu Steuerung, Handy,
+      Jobs, Geld und Regeln (Befund 1 aus dem ersten Spieltest)
 - [ ] Regelwerk für Roleplay (kurz: Charakter spielen, kein Powergaming/Metagaming, Umgang bei Streit), als Seite in `docs/` oder im Discord
 - [ ] **Entscheidung** Discord ja/nein: Link in `qbx:discordLink`, Freigabe-Anfragen der Allowlist dort abwickeln
 - [ ] Festlegen, wer Allowlist-Anfragen freigibt und wer txAdmin-Admin ist

@@ -252,6 +252,12 @@ und `/bin/systemctl`. `status` braucht kein root und fehlt deshalb. Die Datei wi
 **Optionales Secret `DEPLOY_KNOWN_HOSTS`.** Ohne das Secret holt `deploy.yml` den Host-Key bei jedem Lauf per
 `ssh-keyscan`; wer Pinning will, legt den Key einmal als Secret ab.
 
+**Das Repo ist öffentlich (seit 13.09.2026).** Der VPS klont und pullt per HTTPS ohne Token oder Deploy-Key, und
+Freunde können den Stand ohne Einladung lesen. Das geht, weil keine Geheimnisse in Git liegen: Sie stehen nur in
+`secrets.cfg` bzw. `.env`, die CI prüft die cfg-Dateien, und vor der Umstellung wurde die ganze Historie
+durchsucht. `deploy.yml` startet nur per Hand (`workflow_dispatch`), Pull Requests aus Forks kommen nicht an die
+Secrets. Öffentlich sind dafür die Logs der Actions und die E-Mail-Adressen in den Commits.
+
 ## Docker
 
 **`.dockerignore` lässt nur `docker/entrypoint.sh` in den Build-Kontext.** Der Kontext ist der Repo-Root

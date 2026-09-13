@@ -7,7 +7,8 @@ Kontext und Regeln für Claude-Code-Sitzungen in diesem Repo. Gilt auf jedem Rec
 - Privater FiveM-Roleplay-Server für Luca und Freunde (etwa 5 bis 15 Spieler), kein Geld, kein öffentlicher Betrieb.
 - Framework **Qbox** mit **MariaDB**, übersetzt aus dem offiziellen txAdmin-Rezept (Commit `a4be9fc`).
 - Ziel ist Realismus über GTA-Lore-Marken und eigene Designs, **keine echten Marken** (siehe Regeln unten).
-- Repo: privates GitHub-Repo `lucawtz/FiveMServer`, Branch `main`.
+- Repo: **öffentliches** GitHub-Repo `lucawtz/FiveMServer` (seit 13.09.2026), Branch `main`. Alles Committete
+  und die Logs der Actions sind für jeden sichtbar.
 - Kommunikation mit Luca auf Deutsch in du-Form, kurze Zwischenstände. Doku und Skriptausgaben ebenfalls Deutsch.
 
 ## Wo was steht
@@ -121,7 +122,8 @@ Auf Windows mindestens die geänderten `.ps1` parsen, z. B.
 
 - `basic-gamemode` wird per `stop` angehalten (kollidiert mit der Qbox-Charakterauswahl). `mapmanager`,
   `spawnmanager` und `baseevents` kommen aus `[cfx-default]`. `hardcap` und `sessionmanager` gibt es nicht mehr.
-- Rezept-Fehler: `cola` in der Fahrzeug-Beute ist durch `sprunk` ersetzt; das Item `markedbills` fehlt noch
+- Rezept-Fehler: `cola` in der Fahrzeug-Beute (`ox.cfg`) und in den Shops (`[local]/[overrides]/shops.lua`) ist
+  durch `sprunk` ersetzt; das Item `markedbills` fehlt noch
   (`docs/checkliste.md`, Phase 6).
 - `set qbx:cleanPlayerGroups "true"` entfernt beim Start Jobs, die `qbx_core` nicht kennt. Eigene Jobs deshalb in
   `qbx_core/shared/jobs.lua` (siehe Checkliste).

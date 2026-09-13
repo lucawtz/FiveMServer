@@ -20,7 +20,7 @@ Voraussetzung: Repo ist geklont (z. B. nach `/opt/fivem`), du bist root.
 
 ```bash
 apt-get update && apt-get install -y git
-git clone https://github.com/<dein-account>/<dein-repo>.git /opt/fivem
+git clone https://github.com/lucawtz/FiveMServer.git /opt/fivem
 cd /opt/fivem
 sudo bash scripts/linux/install.sh [--user fivem] [--channel recommended] [--no-mariadb] [--enable-firewall] [--txadmin-public] [--no-firewall]
 ```
@@ -370,10 +370,15 @@ Man-in-the-Middle beim Scan würde nicht auffallen). Wer das strenger will, legt
 die Ausgabe komplett als Secret eintragen. Dann schreibt der Workflow genau diesen Key in `known_hosts` und
 `StrictHostKeyChecking=yes` greift wirklich.
 
-Privates GitHub-Repo: `git pull` auf dem Server läuft als `fivem` und braucht Lesezugriff. Entweder das Repo
-per HTTPS mit einem Fine-grained Token in der Remote-URL klonen (nur Contents: Read) oder einen zweiten
-Schlüssel in `/home/fivem/.ssh/` als GitHub-Deploy-Key (read-only) hinterlegen und die Remote-URL auf
-`git@github.com:<account>/<repo>.git` umstellen. Öffentliche Repos brauchen nichts davon.
+Lesezugriff auf das Repo: `git pull` auf dem Server läuft als `fivem`. Das Repo `lucawtz/FiveMServer` ist
+öffentlich, der Server klont und pullt deshalb ohne Zugangsdaten per HTTPS
+(`https://github.com/lucawtz/FiveMServer.git`). Der Schlüssel oben ist nur für die Anmeldung von GitHub Actions
+auf dem Server. Wird das Repo wieder privat, braucht `fivem` Lesezugriff: entweder per HTTPS mit einem
+Fine-grained Token in der Remote-URL (nur Contents: Read) oder mit einem zweiten Schlüssel in
+`/home/fivem/.ssh/` als GitHub-Deploy-Key (read-only) und der Remote-URL `git@github.com:lucawtz/FiveMServer.git`.
+
+Öffentlich sind auch die Logs der Actions. Host, User und Pfad blendet GitHub aus, weil sie Secrets sind.
+Was `deploy.sh` auf dem Server ausgibt, steht dagegen lesbar im Log.
 
 Manuell testen, bevor du den Workflow nutzt: `ssh -i deploy_key -p 22 fivem@<server-ip> 'cd /opt/fivem && bash scripts/linux/deploy.sh --no-restart'`.
 

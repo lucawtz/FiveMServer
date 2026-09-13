@@ -147,6 +147,8 @@ zip [vendor]/[ox]/ox_doorlock https://github.com/overextended/ox_doorlock/releas
 zip [vendor]/[ox]/ox_inventory https://github.com/overextended/ox_inventory/releases/latest/download/ox_inventory.zip
 # Qbox-Items fuer ox_inventory aus dem Rezept-Repository
 copy [vendor]/.sources/qbox-recipe/items.lua [vendor]/[ox]/ox_inventory/data/items.lua
+# Eigene Shops: Verkaeufer im Ammunation, sprunk statt cola (Kopf von [local]/[overrides]/shops.lua)
+copy [local]/[overrides]/shops.lua [vendor]/[ox]/ox_inventory/data/shops.lua
 # Item-Bilder von Qbox ersetzen den Bilder-Ordner von ox_inventory komplett
 git [vendor]/.sources/qbx_invimages https://github.com/Qbox-project/qbx_invimages.git main
 copy [vendor]/.sources/qbx_invimages/images [vendor]/[ox]/ox_inventory/web/images

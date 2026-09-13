@@ -93,6 +93,10 @@ committete Konfiguration, deshalb unterscheidet sich Folgendes:
 - **`sprunk` statt `cola` in der Fahrzeug-Beute.** Das Rezept trägt in `inventory:vehicleloot` das Item `cola`
   ein, das weder die Qbox-Items noch ox_inventory definieren. ox_inventory meldet dann `item does not exist`
   und legt nichts ab. `ox.cfg` nutzt stattdessen das GTA-Getränk `sprunk`, das in den Qbox-Items existiert.
+- **Eigene `shops.lua` für ox_inventory.** `[local]/[overrides]/shops.lua` ersetzt per `copy`-Zeile die Datei aus
+  dem Release (Stand v2.47.9). Im Ammunation steht an jeder Theke ein Verkäufer (`s_m_y_ammucity_01`, Positionen
+  aus `qb-shops`), vorher gab es nur eine unsichtbare Zielzone. In Shop, Liquor Store und Getränkeautomat
+  verkauft sie `sprunk`, weil ox_inventory das nicht definierte `cola` im Shop stillschweigend weglässt.
 - **ox_lib fest auf v3.39.0 mit eigener `textui.lua`.** `[local]/[overrides]/ox_lib_textui.lua` ersetzt per
   `copy`-Zeile die TextUI von ox_lib: Interaktions-Hinweise ("E - Garage öffnen" usw.) stehen immer unten mittig,
   größer und mit farbigem Rand, auch wenn eine Ressource `left-center` oder `right-center` angibt. Im Original

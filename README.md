@@ -84,7 +84,7 @@ docs/                          Ausführliche Anleitungen (siehe unten), inkl. en
 1. Repo klonen, am besten in einen kurzen Pfad:
 
    ```
-   git clone https://github.com/<dein-account>/<dein-repo>.git C:\FiveMServer
+   git clone https://github.com/lucawtz/FiveMServer.git C:\FiveMServer
    ```
 
 2. `scripts\windows\install.bat` doppelklicken. Das Skript lädt die Artifacts (Kanal `recommended`),
@@ -131,7 +131,7 @@ Als root (oder mit sudo) auf dem Server:
 
 ```bash
 apt-get update && apt-get install -y git
-git clone https://github.com/<dein-account>/<dein-repo>.git /opt/fivem
+git clone https://github.com/lucawtz/FiveMServer.git /opt/fivem
 cd /opt/fivem
 sudo bash scripts/linux/install.sh --enable-firewall
 ```

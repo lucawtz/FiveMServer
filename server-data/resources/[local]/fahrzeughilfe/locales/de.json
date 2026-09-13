@@ -1,0 +1,33 @@
+{
+    "title": "Fahrzeug-Hilfe",
+    "hint_expand": "ausklappen",
+    "hint_collapse": "einklappen",
+    "keybind": "Fahrzeug-Hilfe aus- und einklappen",
+    "footer": "Tasten ändern: Einstellungen > Tastenbelegung > FiveM",
+    "unbound": "nicht belegt",
+    "special_key": "Sondertaste",
+
+    "group_drive": "Fahren",
+    "group_vehicle": "Fahrzeug",
+    "group_more": "Weiteres",
+
+    "engine": "Motor an/aus",
+    "seatbelt": "Gurt an/ab",
+    "cruise": "Tempomat an/aus",
+    "handbrake": "Handbremse",
+    "headlights": "Licht",
+    "horn": "Hupe",
+    "camera": "Kamera wechseln",
+
+    "exit": "Aussteigen",
+    "locks": "Auf- und abschließen",
+    "searchkeys": "Schlüssel suchen, wenn keiner da ist",
+    "shuffle": "Sitz wechseln",
+    "trunk": "Kofferraum oder Handschuhfach",
+    "fuel": "Tanken: aussteigen, an der Zapfsäule",
+
+    "radio_station": "Radiosender (halten)",
+    "vehradio": "Autoradio an/aus",
+    "radial": "Radialmenü",
+    "hud": "HUD-Einstellungen"
+}
