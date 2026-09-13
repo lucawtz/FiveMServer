@@ -314,7 +314,9 @@ dort deaktiviert. Freunde brauchen dann immer die direkte Adresse per `connect`.
 - Eigener Code: `git pull`, dann bei Bedarf `install.bat -UpdateResources`.
 - Neue oder geänderte SQL-Dateien importiert `install.bat` in Schritt 4 automatisch, einzeln geht es mit
   `setup-database.bat` (Stand anzeigen: `setup-database.bat -DryRun`).
-- zip-Ressourcen mit `releases/latest` (z. B. ox_lib, oxmysql) aktualisiert nur `install.bat -ForceResources`.
+- zip-Ressourcen mit `releases/latest` (z. B. ox_inventory, oxmysql) aktualisiert nur `install.bat -ForceResources`,
+  das dabei alle Ziele neu lädt. ox_lib steht wegen zweier eigener Dateien fest auf v3.39.0, den Update-Ablauf
+  beschreibt [ressourcen.md](ressourcen.md#ox_lib-mit-eigenen-dateien-aktualisieren).
 
 Während eines Artifact-Updates ist `artifacts\` kurz leer. Schlägt das Entpacken fehl, einfach
 `install.bat -ForceArtifacts` erneut ausführen. Bleibt nach einem abgebrochenen Lauf der Ordner

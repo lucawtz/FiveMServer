@@ -14,7 +14,8 @@ return {
     -- Taste zum Aus- und Einklappen. Spieler können sie unter Einstellungen > Tastenbelegung > FiveM ändern.
     toggleKey = 'F6',
 
-    -- Bildschirmseite: 'left' oder 'right'. Rechts liegen die Hinweise von ox_lib (TextUI, Benachrichtigungen).
+    -- Bildschirmseite: 'left' oder 'right'. Rechts liegt das Panel "Beruf und Geld" (spielerinfo). Die Hinweise
+    -- von ox_lib stehen unten mittig (TextUI) und oben mittig (Benachrichtigungen).
     side = 'left',
 
     -- Zustand für Spieler, die noch nie umgeschaltet haben. Danach merkt sich das Spiel ihre Wahl.

@@ -13,8 +13,11 @@
 -- Abweichungen vom Original:
 --   - Die Position ist immer 'bottom-center', auch wenn eine Ressource 'left-center' oder
 --     'right-center' angibt. So stehen alle Interaktions-Hinweise an derselben, gut sichtbaren Stelle.
---   - Standard-Stil: größere, fette Schrift, farbiger Rand links, etwas über dem unteren Bildschirmrand.
---     Gibt eine Ressource eigene Stilwerte an, gewinnen diese.
+--   - Standard-Stil im Design des Servers (docs/entscheidungen.md, "Einheitlicher Stil"): dunkle,
+--     halbtransparente Fläche mit feiner Linie, runde Ecken, größere fette Schrift, Symbole in der
+--     Akzentfarbe, etwas über dem unteren Bildschirmrand. Gibt eine Ressource eigene Stil- oder
+--     Farbwerte an, gewinnen diese.
+--   - Warnung in der F8-Konsole, wenn eine andere Version von ox_lib läuft als die Grundlage.
 
 ---@class TextUIOptions
 ---@field position? 'right-center' | 'left-center' | 'top-center' | 'bottom-center';
@@ -24,6 +27,7 @@
 ---@field alignIcon? 'top' | 'center';
 
 local POSITION = 'bottom-center'
+local EXPECTED_VERSION = '3.39.0'
 
 -- CSS-Werte für das Kästchen (React-Schreibweise), siehe ox_lib web/src/features/textui
 local DEFAULT_STYLE = {
@@ -31,9 +35,21 @@ local DEFAULT_STYLE = {
     fontWeight = 600,
     padding = '14px 22px',
     marginBottom = '12vh',
-    borderLeft = '5px solid #4dabf7',
-    boxShadow = '0 4px 16px rgba(0, 0, 0, 0.6)',
+    color = '#f5f3ea',
+    backgroundColor = 'rgba(26, 24, 7, 0.7)',
+    border = '1px solid rgba(245, 243, 234, 0.1)',
+    borderRadius = '14px',
+    boxShadow = '0 10px 30px rgba(0, 0, 0, 0.3)',
 }
+
+-- Farbe der Symbole, wenn die Ressource keine angibt (Akzent aus dem Ladebildschirm)
+local ICON_COLOR = '#f1e542'
+
+local loadedVersion = GetResourceMetadata(GetCurrentResourceName(), 'version', 0)
+if loadedVersion ~= EXPECTED_VERSION then
+    print(('^1[ox_lib_textui.lua] Eigene TextUI passt zu ox_lib v%s, geladen ist v%s. Datei mit dem Original vergleichen (docs/ressourcen.md).^0')
+        :format(EXPECTED_VERSION, tostring(loadedVersion)))
+end
 
 local isOpen = false
 local currentText
@@ -71,6 +87,7 @@ function lib.showTextUI(text, options)
     data.text = text
     data.position = POSITION
     data.style = buildStyle(data.style)
+    data.iconColor = data.iconColor or ICON_COLOR
     currentText = text
 
     SendNUIMessage({

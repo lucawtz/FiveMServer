@@ -189,16 +189,19 @@ Notiert von Luca beim ersten Einloggen, Ursachen noch nicht untersucht.
 - [x] Befund 6: Der Hinweis ist die TextUI von `ox_lib` (`lib.showTextUI`), Standardposition `right-center`, ohne
       Convar. Etwa 45 Ressourcen nutzen sie (Garagen, Jobs, Shops, Türen, Überfälle), viele geben selbst
       `left-center` an. `ox_lib` steht jetzt fest auf v3.39.0, `[local]/[overrides]/ox_lib_textui.lua` ersetzt die
-      Datei (Weg B): immer unten mittig, größere fette Schrift, blauer Rand links, etwas über dem Bildschirmrand.
+      Datei (Weg B): immer unten mittig, größere fette Schrift, etwas über dem Bildschirmrand. Seit dem 13.09.2026
+      im neuen Stil statt mit blauem Rand links ([Plan](#einheitlicher-stil-und-eigenes-hud), Schritt 3).
   - [ ] Im Spiel testen: Garage, Kleidungsladen (illenium-appearance), ein Job. Überdeckt der Hinweis im
         Fahrzeug den Tacho von `qbx_hud`? Dann `marginBottom` in der Datei anpassen.
   - [ ] Interaktionen über `ox_target` (linke Alt-Taste) sind eine andere Anzeige, getrennt bewerten.
-- [ ] Befund 9 beheben: Die Meldungen kommen von `lib.notify` (`ox_lib`). Die Anzeigedauer ist 3 Sekunden, wenn die
-      aufrufende Ressource keine `duration` mitgibt (`web/build`, `n.duration||3e3`), die Position `top-right` ist
-      eine Client-Einstellung (`resource/settings.lua`). Einen Convar für Dauer oder Größe gibt es nicht. Zentral
-      lösbar zusammen mit Befund 6 über einen Override von `resource/interface/client/notify.lua` (Weg B): ohne
-      angegebene Dauer z. B. 6 bis 8 Sekunden setzen und über das Feld `style` Schriftgröße und Breite erhöhen.
-      Ressourcen mit eigener kurzer `duration` bleiben davon unberührt, bei Bedarf eine Mindestdauer erzwingen.
+- [x] Befund 9: Die Meldungen kommen von `lib.notify` (`ox_lib`). Die Anzeigedauer ist 3 Sekunden, wenn die
+      aufrufende Ressource keine `duration` mitgibt (`web/build`, `n.duration||3e3`). Die Position ist eine
+      Client-Einstellung (`resource/settings.lua`), `qbx_core` schickt aber bei jeder Meldung ausdrücklich
+      `top-right` mit (`config/shared.lua`). Einen Convar für Dauer, Größe oder Position gibt es nicht.
+      `[local]/[overrides]/ox_lib_notify.lua` ersetzt die Datei (Weg B): immer oben mittig, ohne Angabe 7 Sekunden,
+      Angaben von 1,5 bis 5 Sekunden werden auf 5 Sekunden verlängert, kürzere bleiben. Dunkle Fläche im neuen Stil,
+      Beschreibung größer und heller, die Symbolfarben nach Typ (Fehler, Erfolg, Warnung) bleiben.
+  - [ ] Übernehmen und im Spiel testen: [Plan](#einheitlicher-stil-und-eigenes-hud), Schritt 3.
 - [x] Befunde 10 und 11: Ursache war zweierlei. `qbx_hud` zeigt Geld nur 2 Sekunden bei einer Änderung oder
       3,5 Sekunden nach `/cash` und `/bank`. Und jeder Charakter startet im Job `unemployed` ("Civilian",
       "Freelancer", `payment = 10`, `defaultDuty = true`), qbx_core zahlt alle 10 Minuten aufs Konto und meldet nur
@@ -307,11 +310,77 @@ Notiert von Luca beim ersten Einloggen, Ursachen noch nicht untersucht.
 - [ ] **Entscheidung** Discord ja/nein: Link in `qbx:discordLink`, Freigabe-Anfragen der Allowlist dort abwickeln
 - [ ] Festlegen, wer Allowlist-Anfragen freigibt und wer txAdmin-Admin ist
 
+### Einheitlicher Stil und eigenes HUD
+
+Entschieden am 13.09.2026: Alle Oberflächen folgen einem Stil, ox_lib bleibt ohne Fork, oben rechts stehen Beruf und
+Geld, Benachrichtigungen oben mittig. Farben, Schrift, Abstände und Gründe:
+[entscheidungen.md](entscheidungen.md) unter "Einheitlicher Stil ohne Fork von ox_lib" und "Eigenes HUD statt
+qbx_hud". Die Schritte bauen aufeinander auf.
+
+- [ ] **1. Ist-Zustand festhalten**, vor dem nächsten `install.bat` und solange qbx_hud läuft. Screenshots bei
+      1920 × 1080 und in einem kleineren Fenster (1366 oder 1600 breit): Minimap zu Fuß und im Fahrzeug (sind unter
+      der Minimap Lebens- und Rüstungsbalken zu sehen?), `/bank`, eine Benachrichtigung, das Kontextmenü einer Garage,
+      Scoreboard, Emote-Menü (F5), Stress nach einem misslungenen Dietrich. Die Freunde nach ihrer Auflösung fragen
+      (**Entscheidung** 18).
+- [x] **2. `ox_target:drawSprite 24`** in `ox.cfg` (Weg A, vorher 1 aus dem Rezept).
+  - [ ] Im Spiel testen: Mit gehaltener Alt-Taste haben alle Zonen in der Nähe einen Kreis, die angezielte wird blau.
+        In belebten Ecken (Krankenhaus, Wache) bleiben die FPS stabil, sonst auf etwa 8 senken, aber nie wieder 1.
+- [x] **3. Benachrichtigungen und Interaktions-Hinweise im neuen Stil** (Weg B, Befund 6 und 9):
+      `[local]/[overrides]/ox_lib_notify.lua` (neu) und `ox_lib_textui.lua`. Beide warnen in der F8-Konsole, wenn
+      ox_lib nicht mehr v3.39.0 ist.
+  - [ ] Übernehmen am PC: `scripts\windows\install.bat` ausführen (die `copy`-Zeilen laufen bei jedem Aufruf, kein
+        Force nötig), Server neu starten.
+  - [ ] Im Spiel testen: Meldung beim Einloggen (Inventar geladen, von ox_inventory), Gehalt (von qbx_core, das
+        immer `top-right` mitschickt), zwei oder drei Meldungen zugleich bei offenem Kontextmenü einer Garage,
+        Lesbarkeit vor hellem Himmel, Ankündigung aus txAdmin, Hinweis "E - Garage öffnen", F8-Konsole ohne rote
+        Warnung. Im Fahrzeug überdecken sich Meldungen oben mittig mit Kompass und Straßennamen von qbx_hud, bis
+        Schritt 8 erledigt ist. Bis dahin keinen Spieltest mit Freunden.
+- [ ] **4. Farbe der ox_lib-Menüs** (Weg A, eigener Commit): `setr ox:primaryColor dark` und
+      `setr ox:primaryShade 3` statt `blue` und `8`. Der Name muss exakt stimmen, ein Tippfehler legt alle
+      ox_lib-Oberflächen lahm. Übernehmen: `ox.cfg` ändern, Server neu starten, neu verbinden (nie `restart ox_lib`).
+      Testen: Fortschrittsbalken (Füllstand gegen die Spur erkennbar), Eingabedialog mit Checkbox, Auswahl und
+      Bestätigen, Radialmenü. Wirkt der Bestätigen-Button deaktiviert oder der Balken zu blass, zurück zu `blue`/`8`.
+- [ ] **5. Bildschirm-Aufteilung** in `entscheidungen.md` festhalten, in vh, damit sich die getrennten Ressourcen nicht
+      überlagern: oben rechts Beruf und Geld (auch ausgeklappt oberhalb von etwa 28vh, das Scoreboard beginnt bei
+      30vh), oben mittig Benachrichtigungen, links die Fahrzeug-Hilfe (32vh), neben der Minimap Status, darüber die
+      Straße, unten rechts das Fahrzeug (über der Sprachanzeige von pma-voice und dem Handy-Rand von npwd), unten
+      mittig Text-Hinweis (12vh), Fortschritt, Item-Meldungen von ox_inventory (20vh) und Texte per `drawText2d`.
+- [ ] **6. `spielerinfo` als Kacheln oben rechts, `fahrzeughilfe` im neuen Stil** (Weg D): eingeklappt Bargeld,
+      Konto und Beruf mit "Im Dienst", mit F7 zusätzlich Einkommen und nächste Zahlung, Geldänderungen kurz als
+      +/- Betrag. Ressourcenname, F7-Befehl und gespeicherter Zustand bleiben. Manrope als woff2 mit `OFL.txt` in
+      beiden Ressourcen. Testen gegen Scoreboard, Emote-Menü, Admin-Menü, Mitgliederliste von mm_radio und Ausweis.
+- [ ] **7. Eigene Ressource `[local]/hud`, Stufe A** (Weg D), gebaut, während qbx_hud noch läuft. Nur eine Sitzung
+      arbeitet daran. `ensure hud` in `server.cfg` nach `ensure spielerinfo` eintragen.
+  - Server-Events `hud:server:GainStress` und `hud:server:RelieveStress` unter genau diesen Namen: nur positive
+    Beträge, Anstieg auf etwa 10 begrenzt, Wert 0 bis 100 über `SetMetadata`, Ausnahme für Polizei wie im Original,
+    keine Meldung bei jedem Anstieg. Solange qbx_hud läuft (`GetResourceState('qbx_hud') == 'started'`), tun sie
+    nichts, beim Start erscheint eine rote Warnung. Stress-Effekte wie in qbx_hud (**Entscheidung** 16).
+  - Status neben der Minimap: Gesundheit, Hunger und Durst immer, Rüstung und Stress nur über 0 (**Entscheidung** 19).
+  - Fahrzeug unten rechts: km/h, Tank (rot ab 20 %), Gurt-Warnung, Schloss. Straße über der Minimap.
+  - Minimap: Lebens- und Rüstungsbalken des Spiels ausblenden (Scaleform `minimap`), Sichtbarkeit zu Fuß nach
+    **Entscheidung** 17. Nur mit neu verbundenem Client ohne qbx_hud testen, dessen `minimap.gfx` lädt beim
+    Verbinden.
+  - Ausblenden im Pausemenü und vor dem Einloggen, das Fahrzeug-HUD auch bei offenem Inventar, aber nicht bei jedem
+    NUI-Fokus (Handy und Listen-Menüs sind auch während der Fahrt offen).
+  - Testen in der Serverkonsole: `stop qbx_hud`, Stress durch Dietrich, Abbau durch Essen, Effekte bei 50 und 100,
+    danach `start qbx_hud` (die eigenen Events halten sich zurück, kein doppelter Stress).
+- [ ] **8. qbx_hud entfernen:** Zeile in `resources.txt` löschen, `+hud_menu` aus `fahrzeughilfe/config.lua`
+      entfernen, Doku anpassen (`/cash` und `/bank` entfallen). Am PC Server stoppen, Ordner
+      `server-data\resources\[vendor]\[qbx]\qbx_hud` von Hand löschen, starten. Zurück: Zeile wieder eintragen,
+      `install.bat`, `ensure hud` auskommentieren.
+- [ ] **9. Stufe B**, je Funktion ein Commit: Sprachanzeige (dann `setr voice_enableUi 0` in `voice.cfg`), Tempomat,
+      Himmelsrichtung, Gang, Luft unter Wasser, optional Stress beim Schießen.
+- [ ] **10. Zweiter Spieltest** mit den Freunden bei ihrer echten Auflösung, Ergebnisse als neue Befunde.
+
+Später, nur bei Bedarf: `spielerinfo` und `fahrzeughilfe` in `hud` zusammenlegen (gespeicherte Zustände und
+Tastenbelegungen prüfen). Menüs von ox_lib über eine Anpassung von `resource/client.lua` weiter angleichen, als
+zeitlich begrenzter Versuch. ox_target auf festen Stand setzen und eine eigene `web/style.css` kopieren.
+
 ## Phase 4: Realismus, Grundsystem
 
 | Punkt | Umsetzung |
 |-------|-----------|
-| [ ] Tacho in km/h | `qbx_hud/config/client.lua`: `useMPH = false`, laut Kommentar zusätzlich die Einheit in `styles.css` ändern (Weg C, Fork); entfällt, falls ein eigenes HUD `qbx_hud` ersetzt |
+| [ ] Tacho in km/h | kommt mit dem eigenen HUD, das `qbx_hud` ersetzt ([Plan](#einheitlicher-stil-und-eigenes-hud), Schritt 7). Ein Fork von `qbx_hud` (`useMPH = false` plus Einheit in `styles.css`) entfällt |
 | [ ] Hunger und Durst | `qbx_core/config/server.lua`: `hungerRate` (4.2), `thirstRate` (3.8) (Weg C) |
 | [ ] Startgeld | `qbx_core/config/server.lua`: `moneyTypes = { cash = 500, bank = 5000, crypto = 0 }`, **Entscheidung** Wirtschaft |
 | [ ] Gehälter | Intervall `paycheckTimeout` (10 min) und `paycheckSociety` in `qbx_core/config/server.lua`, Beträge pro Rang in `shared/jobs.lua` |
@@ -647,6 +716,10 @@ als großer Eigenbau, das kostenlose `alberttheprince/FiveM-Golf` hat keine Lize
 | 13 | Militär nur als NPC-Sperrgebiet oder auch als Spieler-Job? | Aufwand, wenig Einsätze in kleiner Runde | Erst NPC-Sperrgebiet Fort Zancudo |
 | 14 | Was kosten NPC-Dienste? | Zu billig macht Spieler-Jobs sinnlos, zu teuer frustriert | Deutlich teurer als ein Spieler im Dienst, Werte mit Entscheidung 3 |
 | 15 | Wer darf Tier- und NPC-Modelle als Charakter wählen (Befund 14)? | Heute jeder bei der Erstellung; Tiere können vieles im Spiel nicht (Fahrzeuge, Inventar, Waffen) | In der Erstellung nur die beiden Freemode-Modelle, Tiere und NPC-Figuren über `/pedmenu` bzw. freigegebene Gruppen in `peds.lua`, sobald sie im Spiel funktionieren |
+| 16 | Stress im Spiel behalten? | Überfälle und Dietrich erzeugen Druck (Unschärfe ab 50, Hinfallen bei 100); ohne Ersatz der Events von qbx_hud geht er still verloren | Behalten wie in qbx_hud, Abbau durch Essen und Heilen; später prüfen, ob er mit der Zeit sinken soll ([Plan](#einheitlicher-stil-und-eigenes-hud)) |
+| 17 | Minimap zu Fuß immer sichtbar? | qbx_hud zeigt sie nur im Fahrzeug, die geplanten Status-Kacheln sitzen daneben | Immer sichtbar, sonst brauchen die Kacheln einen anderen Platz |
+| 18 | Mit welcher Auflösung spielen die Freunde? | Unter etwa 1880 Pixeln Breite berühren gestapelte Meldungen oben mittig das Kontextmenü von ox_lib | Abfragen; bei kleinen Bildschirmen Meldungen schmaler oder kürzer |
+| 19 | Gesundheit statt Energie im Status? | Qbox kennt keine Energie, qbx_core zieht bei Hunger oder Durst 0 Gesundheit ab | Gesundheit, Hunger, Durst immer; Rüstung und Stress nur über 0; Energie streichen |
 
 ## Quellen der technischen Angaben
 
@@ -665,6 +738,14 @@ Geprüft am 13.09.2026 im Quellcode bzw. über die GitHub-API:
   `qbx_pawnshop`, `qbx_police`, `qbx_vehiclekeys`, `qbx_management` (README), `qbx_smallresources`
   (`qbx_disableservices`); `markedbills` gesucht in Rezept-`items.lua`, qbx_core v1.24.0 und dem aktuellen
   ox_inventory-Release
+- Einheitlicher Stil und eigenes HUD (13.09.2026): ox_lib v3.39.0 `resource/interface/client/notify.lua`, `textui.lua`,
+  `resource/settings.lua`, `resource/client.lua` (nur `primaryColor`/`primaryShade`), `web/src/features/notifications/NotificationWrapper.tsx`
+  und `textui/TextUI.tsx` (Stil, Klasse `description`, Standarddauer 3000), Releases von ox_lib; qbx_core
+  `config/shared.lua` (`notifyPosition`) und `client/functions.lua`; qbx_hud auf `main` (`server/main.lua` mit
+  `hud:server:GainStress`/`RelieveStress`, `client/main.lua`, `stream/minimap.gfx`) und die Aufrufer in
+  `qbx_vehiclekeys`, `qbx_bankrobbery`, `qbx_storerobbery`, `qbx_medical`, `qbx_ambulancejob` und
+  `qbx_smallresources/qbx_consumables`; `pma-voice` (State Bags `proximity`, `radioChannel`, `radioActive`);
+  Positionen in `qbx_scoreboard`, `mm_radio` und `scully_emotemenu`; ox_target `client/utils.lua` (`drawSprite`)
 - Freizeit, Villen und Autohäuser (13.09.2026): `bob74_ipl` `client.lua` (geladene Innenräume, Build-Sperren),
   `qbx_properties` `config/shared.lua`, `qbx_vehicleshop` `config/shared.lua` (`luxury` auskommentiert,
   `vehicles.models`), `qbx_core` v1.24.0 `shared/vehicles.lua` (901 Einträge), `qbx_lapraces` `config.lua` und

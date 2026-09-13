@@ -173,8 +173,9 @@ Hosts; unter Linux per SSH-Key des Service-Users `fivem` oder Token in der URL.
 
 ## Fester Stand oder immer aktuell
 
-Das Manifest übernimmt die Quellen des Qbox-Rezepts unverändert: fast alle git-Zeilen stehen auf `main` bzw.
-`master`, die meisten zip-Zeilen auf `releases/latest`, nur npwd ist fest auf 3.16.0. Folgen:
+Das Manifest übernimmt die Quellen des Qbox-Rezepts weitgehend: fast alle git-Zeilen stehen auf `main` bzw.
+`master`, die meisten zip-Zeilen auf `releases/latest`. Fest stehen npwd (3.16.0, wie im Rezept), ox_lib (v3.39.0,
+siehe [unten](#ox_lib-mit-eigenen-dateien-aktualisieren)) und qbx_core (v1.24.0). Folgen:
 
 - Jedes `deploy.sh` bzw. `-UpdateResources` holt den neuesten Stand der git-Ressourcen. Das bringt Fehlerbehebungen,
   kann aber auch Änderungen bringen, die nicht zu den zip-Ressourcen passen.
@@ -189,8 +190,35 @@ git [vendor]/[qbx]/qbx_core https://github.com/qbox-project/qbx_core.git v1.24.0
 zip [vendor]/[ox]/ox_lib https://github.com/overextended/ox_lib/releases/download/<version>/ox_lib.zip
 ```
 
-Danach das betroffene Ziel mit Force neu laden. Vorher auf der Release-Seite prüfen, dass es das Tag bzw. die
+Danach den Server stoppen, nur den Ordner des betroffenen Ziels unter `[vendor]` löschen und `install-resources`
+ohne Force ausführen, dann lädt nur dieses Ziel neu. Force dagegen lädt alle Ziele neu und hebt jede
+`releases/latest`-Ressource auf das neueste Release. Vorher auf der Release-Seite prüfen, dass es das Tag bzw. die
 Datei gibt. Nach Updates immer die Serverkonsole und `setup-database --dry-run` prüfen.
+
+### ox_lib mit eigenen Dateien aktualisieren
+
+ox_lib steht fest auf v3.39.0, weil zwei eigene Dateien über das Release kopiert werden:
+`[local]/[overrides]/ox_lib_textui.lua` und `[local]/[overrides]/ox_lib_notify.lua`. Beide schreiben eine rote
+Warnung in die F8-Konsole, wenn eine andere Version von ox_lib läuft. Für ein Update:
+
+1. Im Repo von ox_lib nachsehen, ob sich `resource/interface/client/textui.lua` oder `notify.lua` seit v3.39.0
+   geändert haben, und Änderungen in die eigenen Dateien übernehmen. Die Abweichungen vom Original stehen jeweils
+   im Kopf der Datei. Außerdem `web/src/features/notifications/NotificationWrapper.tsx` und
+   `web/src/features/textui/TextUI.tsx` vergleichen: Die Stilwerte hängen an deren Aufbau und Klassennamen und
+   greifen nach Änderungen dort ohne Fehlermeldung nicht mehr.
+2. In beiden Dateien `EXPECTED_VERSION` und die Zeile "Grundlage" anpassen, in `resources.txt` die URL der
+   zip-Zeile von ox_lib, außerdem die Versionsangaben in der Doku (`grep -rn "3.39.0" docs server-data`).
+3. `install-resources --check`. Dann den Server stoppen, nur den Ordner `server-data/resources/[vendor]/[ox]/ox_lib`
+   löschen und die Ressourcen ohne Force installieren (Windows `install.bat`, Linux `install-resources.sh` bzw.
+   `deploy.sh`). Die zip-Zeile lädt dann nur ox_lib neu, die beiden `copy`-Zeilen darunter legen die eigenen
+   Dateien gleich wieder darüber. Force nicht verwenden: Es lädt alle Ziele neu und hebt jede
+   `releases/latest`-Ressource auf das neueste Release. Im Spiel eine Meldung und einen Hinweis "E - ..." prüfen.
+
+Die `copy`-Zeile zu löschen stellt die Original-Datei nicht wieder her: `copy` schreibt nur, und die zip-Zeile lädt
+nichts neu, solange der Ordner existiert. Zurück zum Original: `copy`-Zeile löschen, den Ordner
+`[vendor]/[ox]/ox_lib` löschen und ohne Force installieren. In `ox_lib_notify.lua` lassen sich die Abweichungen
+auch über die Konstanten am Anfang der Datei abschalten. Danach `install.bat` bzw. `install-resources.sh`
+ausführen, damit die geänderte Datei nach `[vendor]` kopiert wird, und den Server neu starten.
 
 ## Eigene Item-Definitionen
 

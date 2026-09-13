@@ -108,6 +108,39 @@ eigener oder ohne Position (Standard `right-center`). Einzelne Ressourcen anzupa
 Repos. Eine eigene `textui.lua` per `copy`-Zeile (Weg B) erzwingt `bottom-center` und einen auffälligen Stil für
 alle. Weil die Datei zum Stand von ox_lib passen muss, steht ox_lib fest auf v3.39.0.
 
+**Benachrichtigungen oben mittig und länger sichtbar.** Die Meldungen von `lib.notify` standen oben rechts, waren
+klein und nach 3 Sekunden weg (Befund 9). Eine eigene `notify.lua` per `copy`-Zeile (Weg B) erzwingt die Position
+`top` (oben mittig), zeigt Meldungen ohne Angabe 7 Sekunden und verlängert Angaben ab 1,5 Sekunden auf mindestens 5
+Sekunden. Erzwingen ist nötig, weil `qbx_core` bei jeder Meldung ausdrücklich `top-right` mitschickt, eine andere
+Voreinstellung allein würde nichts verschieben. Oben rechts bleibt so frei für Beruf und Geld. Grenzen: Die Position
+unter `/ox_lib` wirkt nicht mehr. Bei Bildschirmen unter etwa 1880 Pixeln Breite können gestapelte Meldungen das
+Kontextmenü von ox_lib berühren, das fest bei 15 % von oben und 25 % von rechts steht.
+
+**Einheitlicher Stil ohne Fork von ox_lib.** Entschieden am 13.09.2026: Alle Oberflächen folgen einem Stil. Dunkle,
+halbtransparente Flächen `rgba(26, 24, 7, 0.7)` mit feiner Linie `rgba(245, 243, 234, 0.1)`, Ecken 14 px, Text
+`#f5f3ea`, Akzent `#f1e542` aus dem Ladebildschirm (nur für Symbole, Auswahl, Tasten, Fortschritt und "Im Dienst"),
+Warnung `#ffbb69`, Gefahr `#fd7466`, Plus `#74e791`, Schrift Manrope, 40 px Abstand zum Bildschirmrand. Eigene
+Ressourcen setzen ihn direkt um. ox_lib bekommt ihn nur für Benachrichtigungen und Interaktions-Hinweise, über die
+Stilwerte in den beiden eigenen Dateien. Ein Fork von ox_lib würde auch Menüs und Dialoge angleichen, bräuchte aber
+einen eigenen Build mit Bun und Nacharbeit bei fast jedem Release (16 in den letzten zwölf Monaten, zeitweise mehrere pro Woche), und ein fehlerhafter Build
+legt alle Oberflächen von ox_lib lahm. Grenzen: Kontextmenü, Listen, Dialoge, Fortschrittsbalken und Radialmenü von
+ox_lib behalten Roboto, kleine Ecken und die Mantine-Palette. `ox:primaryColor` nimmt nur Namen dieser Palette,
+auf allen Gelbtönen sind Beschriftungen und weiße Symbole unlesbar. Auch Benachrichtigungen und Hinweise bleiben in
+Roboto, und Benachrichtigungen stehen 16 px statt 40 px unter dem oberen Rand, beides steckt im fertigen Build.
+
+**Eigenes HUD statt qbx_hud (geplant).** qbx_hud lässt sich nur über einen Fork anpassen (Tacho in mph, letztes
+Release 2024), lädt seine Oberfläche zur Laufzeit von CDNs und passt nicht zum Stil. Geplant ist eine eigene
+Ressource `[local]/hud` (Weg D), gebaut, während qbx_hud noch läuft. qbx_hud ist aber nicht nur Anzeige: Nur dort sind
+die Server-Events `hud:server:GainStress` und `hud:server:RelieveStress` registriert, die `qbx_vehiclekeys`,
+`qbx_bankrobbery`, `qbx_storerobbery`, `qbx_medical`, `qbx_ambulancejob` und `qbx_consumables` aufrufen. Ohne
+gleichnamigen Ersatz ändert sich der Stress nicht mehr, und keine Meldung weist darauf hin. Außerdem streamt qbx_hud
+eine eigene `minimap.gfx`, die vermutlich die Lebens- und Rüstungsbalken des Spiels unter der Minimap ausblendet.
+Plan und offene Fragen: [checkliste.md](checkliste.md#einheitlicher-stil-und-eigenes-hud).
+
+**`ox_target:drawSprite 24` statt 1.** Das Rezept setzt den Convar auf 1, als wäre er ein Schalter. ox_target liest
+ihn als Höchstzahl: Wert n zeichnet bis zu n+1 Kreise für Zonen in der Nähe, in beliebiger Reihenfolge. Mit 1 fehlt der
+Kreis oft genau an der Zone, auf die man zielt. 24 ist der Standard von ox_target.
+
 **Probefahrt über eigene Ressource statt Fork.** `qbx_vehicleshop` hat keine Releases, eine Änderung am Code
 bräuchte einen Fork (Weg C). `[local]/probefahrt` hört stattdessen auf denselben State Bag `isInTestDrive`, hält
 kurz vor dem Ende das Fahrzeug an und schützt den Spieler, bis der Teleport des Servers durch ist. Grenze: Die

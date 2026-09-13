@@ -99,8 +99,14 @@ committete Konfiguration, deshalb unterscheidet sich Folgendes:
   verkauft sie `sprunk`, weil ox_inventory das nicht definierte `cola` im Shop stillschweigend weglässt.
 - **ox_lib fest auf v3.39.0 mit eigener `textui.lua`.** `[local]/[overrides]/ox_lib_textui.lua` ersetzt per
   `copy`-Zeile die TextUI von ox_lib: Interaktions-Hinweise ("E - Garage öffnen" usw.) stehen immer unten mittig,
-  größer und mit farbigem Rand, auch wenn eine Ressource `left-center` oder `right-center` angibt. Im Original
+  größer und im Stil des Servers, auch wenn eine Ressource `left-center` oder `right-center` angibt. Im Original
   stehen sie klein am Bildschirmrand und fallen kaum auf.
+- **Eigene `notify.lua` für ox_lib.** `[local]/[overrides]/ox_lib_notify.lua` ersetzt per `copy`-Zeile die
+  Benachrichtigungen von ox_lib: immer oben mittig, ohne Angabe 7 Sekunden sichtbar (Original 3), Angaben von 1,5 bis
+  5 Sekunden mindestens 5 Sekunden, im Stil des Servers. Im Original stehen sie oben rechts, klein und kurz. Die
+  Position unter `/ox_lib` wirkt dadurch nicht mehr.
+- **`ox_target:drawSprite 24` statt 1.** Das Rezept setzt 1, ox_target liest den Wert aber als Höchstzahl der
+  Zonen-Kreise und zeigt damit höchstens 2 beliebige Zonen. 24 ist der Standard von ox_target.
 - **Eigene Ressource `probefahrt`.** `qbx_vehicleshop` setzt am Ende der Probefahrt den Spieler per Teleport vor
   den Händler, ohne ihn vorher aussteigen zu lassen; wer fährt, kann dabei sterben. `[local]/probefahrt` hält das
   Fahrzeug 3 Sekunden vor dem Ende an, lässt den Spieler aussteigen und macht ihn 8 Sekunden unverwundbar.
@@ -122,7 +128,8 @@ committete Konfiguration, deshalb unterscheidet sich Folgendes:
   Ausnahme: `qbx_core` steht als Release-Zip fest auf v1.24.0 (eigene `jobs.lua` und `config/server.lua`).
 - zip-Einträge mit `releases/latest/download/...` (oxmysql, ox_inventory, illenium-appearance usw.)
   ändern sich mit `--update`/`-Update` **nicht**. Neue Releases holt nur `--force`/`-Force`, das alle Ziele neu lädt.
-  ox_lib steht fest auf v3.39.0 (eigene `textui.lua`).
+  ox_lib steht fest auf v3.39.0 (eigene `textui.lua` und `notify.lua`, Update-Ablauf in
+  [ressourcen.md](ressourcen.md#ox_lib-mit-eigenen-dateien-aktualisieren)).
 - Wer einen Stand festhalten will, setzt im Manifest bei git-Zeilen ein Tag als `[ref]` bzw. bei zip-Zeilen eine
   Release-URL mit fester Version (wie bei npwd `.../releases/download/3.16.0/npwd.zip`), siehe
   [ressourcen.md](ressourcen.md#fester-stand-oder-immer-aktuell).
