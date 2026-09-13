@@ -183,3 +183,6 @@ zip [vendor]/[npwd-apps]/npwd_qbx_mail https://github.com/Qbox-project/npwd_qbx_
 #  [assets]
 # ----------------------------------------------------------------------------
 git [vendor]/[assets]/pillbox https://github.com/Lorenc95/pillbox.git main
+# Haus in den Vinewood Hills (-1531, 434, 109) von Horizon Development, MIT. Ersetzt das Haus des Spiels dort
+# samt der Kartendateien apa_ch2_12b und ch2_12b und der Verdeckung apa_ch2_occl_00 (Test: docs/checkliste.md, Phase 8)
+git [vendor]/[assets]/vinewood_house_mlo https://github.com/Bazsi0513/vinewood_house_mlo.git main

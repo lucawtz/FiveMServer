@@ -638,8 +638,20 @@ Nur Lore-Marken und eigene Designs, keine echten Fahrzeuge oder Marken, auch nic
       `qbx_properties/config/shared.lua` (Weg C, mit dem Fork aus Befund 3 zusammenlegen), danach legt der Makler
       (Job `realestate`) sie per `/createproperty` mit Preis, optionaler Miete und Garagenpunkt an. Grenze:
       `qbx_properties` kennt keine Instanz, deshalb pro Villa nur ein Besitzer
-- [ ] Kostenloses Zusatz-Haus: Vinewood House MLO von Horizon Development (MIT, etwa 11 MB, per git-Zeile aus
-      https://github.com/Bazsi0513/vinewood_house_mlo, ersetzt das Haus bei -1531, 434, 109). Texturen im Spiel auf Marken prüfen
+- [ ] Kostenloses Zusatz-Haus: Vinewood House MLO von Horizon Development (MIT, etwa 11 MB, aus
+      https://github.com/Bazsi0513/vinewood_house_mlo, ersetzt das Haus bei -1531, 434, 109)
+  - [x] Am 13.09.2026 als git-Zeile in `resources.txt` eingetragen (`[vendor]/[assets]/vinewood_house_mlo`, startet
+        über `ensure [assets]`). Texturnamen geprüft: Spieltexturen und neutrale Materialien (z. B.
+        `Bricks066_1K_Color`), keine Markennamen. Innenraum mit Garage, Bad und zwei Zimmern.
+  - [ ] Installieren am PC: `scripts\windows\install.bat` holt die neue Zeile (vorhandene Ressourcen bleiben), Server
+        neu starten.
+  - [ ] Im Spiel testen: Haus außen und innen, Texturen auf Logos und Schriftzüge ansehen, Kollision (nicht durch
+        Boden oder Wände fallen). Die MLO ersetzt die Kartendateien `apa_ch2_12b` und `ch2_12b` des Spiels und die
+        Verdeckung `apa_ch2_occl_00` für die ganze Umgebung. Deshalb auch die Nachbarhäuser und die Richman Villa aus
+        `bob74_ipl` (-1630, 470, 128, rund 100 m entfernt) ansehen: keine Löcher, keine flackernden oder unsichtbaren
+        Gebäude.
+  - [ ] Bei Problemen: Zeile in `resources.txt` auskommentieren, Ordner `[vendor]\[assets]\vinewood_house_mlo`
+        löschen, Server neu starten.
 - [ ] Eigene Kleidung (Firmen-Outfits mit eigenen Logos) über illenium-appearance
 - [ ] **Weg E festlegen**, bevor die erste große Datei kommt. Git scheidet aus (GitHub blockt Dateien über
       100 MiB, LFS hat Kontingente). Optionen: von Hand bzw. per `rsync` nach `[vendor]` (gitignored, Liste der

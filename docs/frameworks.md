@@ -28,7 +28,7 @@ Kategorie-Ordner startet `server.cfg` mit `ensure [kategorie]`.
 | `[voice]`            | `pma-voice` (Sprachchat), `mm_radio` (Funkgerät).                                                        |
 | `[npwd]`             | `npwd` (Handy, fest auf Version 3.16.0), `qbx_npwd` (Qbox-Anbindung).                                    |
 | `[npwd-apps]`        | `npwd_qbx_garages`, `npwd_qbx_mail` (Handy-Apps).                                                        |
-| `[assets]`           | `pillbox` (Krankenhaus-Innenraum).                                                                        |
+| `[assets]`           | `pillbox` (Krankenhaus-Innenraum), `vinewood_house_mlo` (Haus in den Vinewood Hills mit Innenraum, ersetzt das Haus des Spiels bei -1531, 434, 109). |
 
 Aus `[cfx-default]` laufen `mapmanager`, `spawnmanager` und `baseevents`, `chat` kommt aus dem Artifact.
 Drei `copy`-Zeilen im Manifest legen Dateien über andere Ressourcen: die Qbox-Items nach

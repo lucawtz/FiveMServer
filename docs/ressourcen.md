@@ -19,7 +19,7 @@ server-data/resources/[vendor]/
   [ox]/                ox_lib, oxmysql, ox_target, ox_inventory, ox_doorlock, ox_fuel
   [npwd]/              npwd, qbx_npwd
   [npwd-apps]/         npwd_qbx_garages, npwd_qbx_mail
-  [assets]/            pillbox
+  [assets]/            pillbox, vinewood_house_mlo
 ```
 
 So findet FXServer Ressourcen:
