@@ -83,6 +83,15 @@ elif grep -Eq '^[[:space:]]*(set[[:space:]]+)?sv_licenseKey[[:space:]]+"?changem
     warn "In $SECRETS steht noch sv_licenseKey \"changeme\". Bitte echten Key eintragen."
 fi
 
+if [ -f "$SECRETS" ] && [ -r "$SECRETS" ] \
+    && ! grep -Eq '^[[:space:]]*set[[:space:]]+mysql_connection_string[[:space:]]+[^[:space:]]' "$SECRETS"; then
+    warn "In secrets.cfg fehlt ein aktives 'set mysql_connection_string'. Qbox startet ohne Datenbank nicht."
+fi
+
+if [ -z "$(ls -A "$DATA_DIR/resources/[vendor]" 2>/dev/null)" ]; then
+    warn "server-data/resources/[vendor] ist leer: auf dem Host scripts/linux/install-resources.sh ausfuehren."
+fi
+
 if [ -z "$(ls -A "$DATA_DIR/resources/[cfx-default]" 2>/dev/null)" ]; then
     warn "server-data/resources/[cfx-default] ist leer. Auf dem Host einmal ausfuehren: scripts/linux/install-resources.sh"
 fi

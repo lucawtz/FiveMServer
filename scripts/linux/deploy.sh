@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 #
-# deploy.sh - holt den neuesten Stand aus Git, aktualisiert die Ressourcen und
-# startet den fxserver-Dienst neu. Wird von GitHub Actions (deploy.yml) per SSH
+# deploy.sh - holt den neuesten Stand aus Git, aktualisiert die Ressourcen, importiert
+# neue SQL-Dateien (server-data/database.txt) und startet den fxserver-Dienst neu. Wird von GitHub Actions (deploy.yml) per SSH
 # aufgerufen, kann aber auch von Hand laufen.
 #
-# Aufruf: bash scripts/linux/deploy.sh [--no-restart] [--update-artifacts [--channel X]]
+# Aufruf: bash scripts/linux/deploy.sh [--no-restart] [--no-sql] [--update-artifacts [--channel X]]
 #
 # Laeuft als Service-User (Standard) oder als root. Als root werden git und die
 # Ressourcen-Skripte per runuser an den Service-User delegiert, damit der
@@ -21,10 +21,11 @@ usage() {
     cat <<USAGE
 Verwendung: $(basename "$0") [OPTIONEN]
 
-Schritte: git pull --ff-only  ->  install-resources.sh --update  ->  [update-artifacts.sh]  ->  systemctl restart fxserver
+Schritte: git pull --ff-only -> install-resources.sh --update -> setup-database.sh --import -> [update-artifacts.sh] -> systemctl restart fxserver
 
 Optionen:
   --no-restart         Dienst nach dem Update nicht neu starten
+  --no-sql             SQL-Import (setup-database.sh --import) ueberspringen
   --update-artifacts   Zusaetzlich die FXServer-Artifacts aktualisieren
   --channel <name>     Channel fuer --update-artifacts (recommended, latest, optional)
   -h, --help           Diese Hilfe anzeigen
@@ -34,12 +35,14 @@ USAGE
 }
 
 NO_RESTART=0
+NO_SQL=0
 UPDATE_ARTIFACTS=0
 CHANNEL="recommended"
 
 while [ $# -gt 0 ]; do
     case "$1" in
         --no-restart) NO_RESTART=1; shift ;;
+        --no-sql) NO_SQL=1; shift ;;
         --update-artifacts) UPDATE_ARTIFACTS=1; shift ;;
         --channel)
             [ $# -ge 2 ] || die "--channel braucht einen Wert."
@@ -56,7 +59,7 @@ validate_channel "$CHANNEL"
 # main() wird komplett geparst, bevor es laeuft; das abschliessende exit ganz unten
 # verhindert, dass bash nach einem git pull weitere Bytes aus der (dann neuen) Datei liest.
 main() {
-    local root unit service_user user_home done_steps="" start_ts
+    local root unit service_user user_home done_steps="" start_ts cs_rc sql_rc
     root="$(repo_root)"
     unit="/etc/systemd/system/fxserver.service"
     start_ts="$(date +%s)"
@@ -135,7 +138,41 @@ main() {
     done_steps="${done_steps}  - Ressourcen aktualisiert
 "
 
-    # 3. Artifacts (optional)
+    # 3. SQL-Import
+    if [ "$NO_SQL" = "1" ]; then
+        log_info "SQL-Import uebersprungen (--no-sql)."
+        done_steps="${done_steps}  - SQL-Import: uebersprungen (--no-sql)
+"
+    else
+        # Als Service-User pruefen (frisch eingebundene lib.sh aus dem gerade gezogenen Stand),
+        # damit root-Deploys dieselben Dateirechte sehen wie der Dienst.
+        cs_rc=0
+        # shellcheck disable=SC2016
+        run_as bash -c '. "$1/lib.sh" && secrets_get_connection_string "$2" >/dev/null' _ \
+            "$SCRIPT_DIR" "$root/server-data/secrets.cfg" || cs_rc=$?
+        case "$cs_rc" in
+            0)
+                log_info "setup-database.sh --import"
+                sql_rc=0
+                run_as bash "$SCRIPT_DIR/setup-database.sh" --import || sql_rc=$?
+                if [ "$sql_rc" -ne 0 ]; then
+                    die "SQL-Import fehlgeschlagen (Exit-Code ${sql_rc}), Dienst wird NICHT neu gestartet."
+                fi
+                done_steps="${done_steps}  - SQL-Import: ausgefuehrt
+"
+                ;;
+            1|2)
+                log_warn "Kein mysql_connection_string in secrets.cfg, SQL-Import uebersprungen (Qbox braucht die Datenbank)."
+                done_steps="${done_steps}  - SQL-Import: uebersprungen (kein mysql_connection_string)
+"
+                ;;
+            *)
+                die "secrets.cfg nicht lesbar"
+                ;;
+        esac
+    fi
+
+    # 4. Artifacts (optional)
     if [ "$UPDATE_ARTIFACTS" = "1" ]; then
         log_info "update-artifacts.sh --channel ${CHANNEL}"
         if ! run_as bash "$SCRIPT_DIR/update-artifacts.sh" --channel "$CHANNEL"; then
@@ -147,7 +184,7 @@ main() {
 
     check_license_key || true
 
-    # 4. Neustart
+    # 5. Neustart
     if [ "$NO_RESTART" = "1" ]; then
         log_info "Neustart uebersprungen (--no-restart)."
         done_steps="${done_steps}  - Neustart: uebersprungen

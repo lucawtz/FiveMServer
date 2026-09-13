@@ -1,15 +1,16 @@
 # Docker Compose fuer FXServer + MariaDB.
 #
-# Start (aus dem Projektordner; --env-file ist noetig, weil Compose die .env sonst
-# neben der Compose-Datei in docker/ sucht):
-#   cp .env.example .env            # Werte eintragen
-#   sudo chown -R 1000:1000 server-data   # Container laeuft als uid 1000
-#   docker compose --env-file .env -f docker/docker-compose.yml up -d --build
-#   docker compose --env-file .env -f docker/docker-compose.yml logs -f fxserver   # txAdmin-PIN
+# Erststart (aus dem Projektordner; --env-file ist noetig, weil Compose die .env sonst
+# neben der Compose-Datei in docker/ sucht), in dieser Reihenfolge:
+#   1. cp .env.example .env                                   # Werte eintragen
+#   2. scripts/linux/install-resources.sh                     # Ressourcen auf dem Host installieren
+#   3. sudo chown -R 1000:1000 server-data                    # Container laeuft als uid 1000
+#   4. docker compose --env-file .env -f docker/docker-compose.yml up -d --wait db
+#   5. bash scripts/linux/setup-database.sh --docker          # SQL-Dateien aus database.txt importieren
+#   6. docker compose --env-file .env -f docker/docker-compose.yml up -d --build
 #
+# txAdmin-PIN: docker compose --env-file .env -f docker/docker-compose.yml logs -f fxserver
 # txAdmin ist nur auf 127.0.0.1:40120 des Hosts erreichbar (SSH-Tunnel nutzen).
-# Die Basis-Ressourcen musst du einmal auf dem Host installieren:
-#   scripts/linux/install-resources.sh
 
 services:
   fxserver:
@@ -46,7 +47,8 @@ services:
     stop_grace_period: 30s
 
   db:
-    image: mariadb:11
+    # Qbox braucht MariaDB >= 10.9, empfohlen 12.3 LTS.
+    image: mariadb:12.3
     container_name: fxserver-db
     restart: unless-stopped
     # Nur die vier DB-Variablen aus der .env, nicht die komplette Datei: Lizenz-Key,
@@ -56,11 +58,16 @@ services:
       MARIADB_DATABASE: ${MYSQL_DATABASE:-fivem}
       MARIADB_USER: ${MYSQL_USER:-fivem}
       MARIADB_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD fehlt in .env}
+      # Vorhandenes Datenvolume (z. B. von mariadb:11) beim Start automatisch aktualisieren.
+      # Vorher sichern, der erste Start nach dem Upgrade dauert laenger.
+      MARIADB_AUTO_UPGRADE: "1"
     volumes:
       - dbdata:/var/lib/mysql
+    # start_period 120s: ein Auto-Upgrade oder ein langsamer Erststart laeuft ohne Netzwerk,
+    # Fehlschlaege zaehlen erst danach. Ein erfolgreicher Check vorher meldet sofort healthy.
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
-      start_period: 10s
+      start_period: 120s
       interval: 10s
       timeout: 5s
       retries: 3

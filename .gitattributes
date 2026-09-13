@@ -19,6 +19,7 @@ Dockerfile    text eol=lf
 .editorconfig text eol=lf
 .env.example  text eol=lf
 *.example     text eol=lf
+*.sql         text eol=lf
 
 # Windows: CRLF
 *.bat         text eol=crlf

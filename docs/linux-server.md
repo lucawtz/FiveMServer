@@ -1,6 +1,8 @@
 # Linux-VPS: Installation, Betrieb, Deploy
 
-Zielsystem: Ubuntu 24.04 x86_64 (Ubuntu 22.04 und Debian 12 sollten ebenfalls funktionieren) mit systemd.
+Zielsystem: Ubuntu 24.04 x86_64 (MariaDB 10.11 aus den Paketquellen) mit systemd. Debian 12 sollte ebenfalls
+funktionieren. Ubuntu 22.04 liefert nur MariaDB 10.6, Qbox braucht mindestens 10.9: dort MariaDB aus dem
+offiziellen Repository installieren ([datenbank.md](datenbank.md#welche-version)).
 FXServer für Linux läuft nur auf x86_64; `update-artifacts.sh` warnt auf anderen Architekturen.
 
 Alle Skripte liegen in `scripts/linux/`, haben `-h`/`--help`, akzeptieren `--option wert` und
@@ -20,29 +22,30 @@ Voraussetzung: Repo ist geklont (z. B. nach `/opt/fivem`), du bist root.
 apt-get update && apt-get install -y git
 git clone https://github.com/<dein-account>/<dein-repo>.git /opt/fivem
 cd /opt/fivem
-sudo bash scripts/linux/install.sh [--user fivem] [--channel recommended] [--with-mariadb] [--enable-firewall] [--txadmin-public] [--no-firewall]
+sudo bash scripts/linux/install.sh [--user fivem] [--channel recommended] [--no-mariadb] [--enable-firewall] [--txadmin-public] [--no-firewall]
 ```
 
-Auf einem frischen VPS, der nur den Spielserver trägt: `sudo bash scripts/linux/install.sh --enable-firewall`
-(mit `--with-mariadb`, wenn du eine Datenbank brauchst). Laufen dort schon andere Dienste oder eine andere
-Firewall, lass `--enable-firewall` weg und lies die Warnung in Schritt 8.
+Auf einem frischen VPS, der nur den Spielserver trägt: `sudo bash scripts/linux/install.sh --enable-firewall`.
+MariaDB ist Standard, `--no-mariadb` nur, wenn die Datenbank auf einem anderen Server liegt. Laufen dort schon
+andere Dienste oder eine andere Firewall, lass `--enable-firewall` weg und lies die Warnung in Schritt 9.
 
 | Option              | Bedeutung                                                                                     |
 |---------------------|-----------------------------------------------------------------------------------------------|
 | `--user <name>`     | Service-User, Standard `fivem`, wird bei Bedarf angelegt. Erlaubt: `a-z 0-9 _ -`.             |
 | `--channel <name>`  | Artifact-Kanal `recommended` (Standard), `latest`, `optional`.                                |
-| `--with-mariadb`    | MariaDB installieren, Datenbank `fivem` und User `fivem`@`localhost` anlegen.                 |
+| `--no-mariadb`      | Keinen MariaDB-Server installieren und keine lokale Datenbank anlegen (Datenbank auf einem anderen Server). Nur `mariadb-client` wird bei Bedarf installiert. |
+| `--with-mariadb`    | Veraltet und ohne Wirkung (`MariaDB ist jetzt Standard, --with-mariadb ist nicht mehr noetig.`). Zusammen mit `--no-mariadb` Abbruch. |
 | `--enable-firewall` | Ein installiertes, aber inaktives ufw einschalten; vorher werden die erkannten SSH-Ports und 30120/tcp+udp freigegeben. Ohne die Option wird nur gewarnt. |
 | `--txadmin-public`  | 40120/tcp in ufw öffnen, txAdmin ist damit öffentlich (nicht empfohlen). txAdmin lauscht ohnehin auf `0.0.0.0`. |
-| `--no-firewall`     | Schritt 8 komplett überspringen: keine ufw-Regeln anlegen, ufw nicht einschalten, keine Warnung. |
+| `--no-firewall`     | Schritt 9 komplett überspringen: keine ufw-Regeln anlegen, ufw nicht einschalten, keine Warnung. |
 
 Das Skript bricht ab, wenn es nicht als root läuft, nicht auf Linux läuft, `systemctl` fehlt oder der
 Repo-Pfad Leerzeichen oder Sonderzeichen außerhalb von `A-Z a-z 0-9 / . _ + : -` enthält (also z. B.
 `/opt/fivem` verwenden). Es ist idempotent: ein zweiter Lauf legt nichts doppelt an und ändert eine vorhandene
-`secrets.cfg` nur, um bei einem nachträglichen `--with-mariadb` den Verbindungs-String einzutragen;
-Lizenzschlüssel, `rcon_password`, vorhandene DB-Passwörter und txData bleiben unangetastet.
+`secrets.cfg` nur, um einen fehlenden oder neu erzeugten `mysql_connection_string` einzutragen;
+Lizenzschlüssel, `rcon_password`, funktionierende DB-Passwörter und txData bleiben unangetastet.
 
-Die acht Schritte im Detail:
+Die neun Schritte im Detail:
 
 1. **Systempakete**: `apt-get update` und `apt-get install git curl xz-utils unzip ca-certificates sudo`
    (`DEBIAN_FRONTEND=noninteractive`). Ohne `apt-get` nur eine Warnung.
@@ -52,30 +55,45 @@ Die acht Schritte im Detail:
    Alles, was als Service-User läuft, geht über `runuser -u <user> -- env HOME=<home> GIT_TERMINAL_PROMPT=0 ...`
    (Fallback `sudo -u <user> -H`).
 3. **Artifacts und Ressourcen** als Service-User: `update-artifacts.sh --channel <kanal> --if-missing`, dann
-   `install-resources.sh`. Fehlgeschlagene Manifest-Einträge sind hier nur eine Warnung.
-4. **secrets.cfg**: fehlt `server-data/secrets.cfg`, wird sie aus `secrets.cfg.example` kopiert und die erste
-   Zeile, die auf `rcon_password` passt (auch auskommentiert), durch `set rcon_password "<32 Hex-Zeichen>"`
-   ersetzt (sonst angehängt). Immer: `chown <user>`, `chmod 600`. Danach prüft `check_license_key` auf
-   `changeme` (nur Warnung).
-5. **MariaDB** (nur mit `--with-mariadb`): `apt-get install mariadb-server`, falls das Paket `mariadb-server`
-   laut `dpkg -s` noch nicht installiert ist (ein reiner `mariadb-client` reicht nicht und überspringt den
-   Schritt nicht); `systemctl enable --now mariadb` (Fallback `mysql`). Zugriff als root über
-   unix_socket. Existiert `fivem`@`localhost` bereits, wird nur `CREATE DATABASE IF NOT EXISTS fivem` ausgeführt
-   und das Passwort bleibt unverändert. Sonst: 32-Hex-Passwort erzeugen, Datenbank `fivem`
-   (utf8mb4 / utf8mb4_unicode_ci), User anlegen, `GRANT ALL ON fivem.*`, und in `secrets.cfg` die Zeile
-   `set mysql_connection_string "mysql://fivem:<pw>@localhost/fivem?charset=utf8mb4"` eintragen (ersetzt die
-   auskommentierte Vorlage). `secrets.cfg` behält dabei Besitzer `<user>` und Modus 0600. Das Passwort wird am
-   Ende einmal ausgegeben.
-6. **systemd-Unit**: `fxserver.service.template` wird mit `__ROOT__` und `__USER__` gefüllt und nach
+   `install-resources.sh` (Qbox und alle Einträge aus `resources.txt`). Fehlgeschlagene Manifest-Einträge sind
+   hier nur eine Warnung.
+4. **secrets.cfg**: fehlt `server-data/secrets.cfg`, wird sie aus `secrets.cfg.example` kopiert und
+   `set rcon_password "<32 Hex-Zeichen>"` gesetzt: ersetzt wird die letzte aktive `rcon_password`-Zeile, sonst die
+   erste auskommentierte (die Vorlage `#set rcon_password ...`), sonst wird die Zeile angehängt. Immer:
+   `chown <user>`, `chmod 600`. Danach prüft `check_license_key` auf `changeme` (nur Warnung).
+5. **MariaDB**:
+   - Mit `--no-mariadb`: nur `apt-get install mariadb-client`, falls weder `mariadb` noch `mysql` vorhanden ist
+     (der SQL-Import gegen eine entfernte Datenbank braucht den Client).
+   - Sonst: `apt-get install mariadb-server mariadb-client`, falls das Paket `mariadb-server` laut `dpkg -s` fehlt
+     (ein reiner Client reicht nicht), `systemctl enable --now mariadb` (Fallback `mysql`) und Versionsprüfung als
+     root über den unix_socket (`[INFO] MariaDB <version>`).
+   - Ist die Version kleiner als 10.9 (Ubuntu 22.04: 10.6), bricht der Datenbank-Teil ab und das Skript gibt die
+     Befehle für das offizielle MariaDB-Repository aus ([datenbank.md](datenbank.md#welche-version)). Es fügt kein
+     Fremd-Repository von sich aus hinzu.
+6. **Datenbank und SQL-Import**:
+   - Ohne `--no-mariadb`: `setup-database.sh --create` als root. Legt die Datenbank `fivem`
+     (utf8mb4 / utf8mb4_unicode_ci) und die User `fivem@localhost` und `fivem@127.0.0.1` mit demselben
+     32-Hex-Passwort an und schreibt
+     `set mysql_connection_string "mysql://fivem:<pw>@127.0.0.1:3306/fivem?charset=utf8mb4"` in `secrets.cfg`
+     (ersetzt die auskommentierte Vorlage). Ein vorhandener User mit funktionierendem String bleibt unverändert;
+     ein unbekanntes Passwort ändert es nicht (Abbruch mit Hinweis auf `--reset-password`). Ein neues Passwort
+     wird einmal im Terminal ausgegeben (bei umgeleiteter Ausgabe, z. B. in eine Logdatei, nicht; es steht dann nur
+     in `secrets.cfg`).
+   - Steht danach ein aktiver String in `secrets.cfg`: `setup-database.sh --import` als Service-User.
+   - Mit `--no-mariadb` und ohne String: Warnung, dass Qbox eine Datenbank braucht, mit den nächsten Schritten
+     (String eintragen, `sudo -u <user> bash scripts/linux/setup-database.sh --import`).
+   - Schlagen Schritt 5 oder 6 fehl, laufen die Schritte 7 bis 9 trotzdem, das Skript endet aber mit Exit-Code 1.
+   Details: [datenbank.md](datenbank.md).
+7. **systemd-Unit**: `fxserver.service.template` wird mit `__ROOT__` und `__USER__` gefüllt und nach
    `/etc/systemd/system/fxserver.service` (0644) geschrieben, `daemon-reload`, `systemctl enable fxserver`.
    txData-Pfad und txAdmin-Port kommen als `Environment=TXHOST_DATA_PATH=...` und `Environment=TXHOST_TXA_PORT=40120`
    in die Unit, `ExecStart` ist nur `run.sh` ohne Argumente; txAdmin lauscht auf `0.0.0.0:40120`.
    Der Dienst wird **nicht** gestartet, weil der Lizenzschlüssel noch fehlt. Läuft er schon (zweiter Lauf),
    greift die neue Unit erst nach `systemctl restart fxserver`.
-7. **sudoers**: `/etc/sudoers.d/fivem-deploy` (0440) erlaubt dem Service-User ohne Passwort
+8. **sudoers**: `/etc/sudoers.d/fivem-deploy` (0440) erlaubt dem Service-User ohne Passwort
    `systemctl start|stop|restart fxserver` (und `fxserver.service`) für jeden vorhandenen Pfad aus
    `/usr/bin/systemctl` und `/bin/systemctl`. Die Datei wird vor der Installation mit `visudo -cf` geprüft.
-8. **Firewall** (entfällt mit `--no-firewall`):
+9. **Firewall** (entfällt mit `--no-firewall`):
    - ufw installiert und aktiv: `ufw allow 30120/tcp` und `30120/udp` (Kommentar `FXServer`) kommen dazu,
      40120/tcp nur mit `--txadmin-public` (mit Warnung).
    - ufw installiert, aber inaktiv (Standard auf Ubuntu), **ohne** `--enable-firewall`: das Skript schaltet
@@ -83,11 +101,11 @@ Die acht Schritte im Detail:
      (aus `sshd -T` und `systemctl show ssh.socket`, Fallback 22) und warnt:
      `ACHTUNG: ufw ist installiert, aber AUS. Ohne aktive Firewall ist txAdmin (0.0.0.0:40120) aus dem Internet erreichbar!`,
      gefolgt von `Erkannte SSH-Port(s): 22. Entweder dieses Skript erneut ausfuehren:` mit dem passenden
-     Befehl (`sudo bash .../install.sh --enable-firewall`, ergänzt um deine `--user`/`--with-mariadb`/
+     Befehl (`sudo bash .../install.sh --enable-firewall`, ergänzt um deine `--user`/`--no-mariadb`/
      `--txadmin-public`-Optionen) und `Oder von Hand (erst SSH freigeben, sonst sperrst du dich aus):`
      `ufw allow 22/tcp && ufw allow 30120/tcp && ufw allow 30120/udp && ufw enable`. In der Zusammenfassung
      steht `ufw: installiert, aber AUS und nicht eingeschaltet. txAdmin 40120 ist offen! (--enable-firewall)`
-     und die nächsten Schritte bekommen einen Punkt 6 "Firewall einschalten".
+     und die nächsten Schritte bekommen einen Punkt 8 "Firewall einschalten".
    - ufw installiert, aber inaktiv, **mit** `--enable-firewall`: `Schalte ufw ein (--enable-firewall). Standard:
      eingehend alles zu ausser SSH (22) und 30120.`, dann `ufw allow <ssh-port>/tcp` für jeden erkannten
      SSH-Port, 30120/tcp+udp, 40120/tcp nur mit `--txadmin-public`, und `ufw --force enable`. Danach warnt
@@ -96,14 +114,21 @@ Die acht Schritte im Detail:
    - ufw fehlt komplett (z. B. Debian): nichts angelegt, laute Warnung, dass txAdmin (40120/tcp) aus dem
      Internet erreichbar ist, plus `apt install ufw && ufw allow OpenSSH && ufw allow 30120/tcp && ufw allow 30120/udp && ufw enable`.
 
-Am Ende steht eine Zusammenfassung und die nächsten Schritte:
+Am Ende steht eine Zusammenfassung mit der Zeile `Datenbank: eingerichtet`, `uebersprungen (--no-mariadb)` oder
+`FEHLGESCHLAGEN (siehe oben)` (steht zusätzlich ganz am Schluss) und die nächsten Schritte:
 
 ```bash
 nano /opt/fivem/server-data/secrets.cfg   # sv_licenseKey eintragen
 systemctl start fxserver
 journalctl -fu fxserver                   # txAdmin-PIN
 ssh -L 40120:127.0.0.1:40120 root@<server-ip>   # vom eigenen PC aus, dann http://localhost:40120
+# in txAdmin: License Allowlist einschalten (siehe unten)
+sudo -u fivem bash /opt/fivem/scripts/linux/setup-database.sh --dry-run   # Stand der SQL-Dateien
+bash /opt/fivem/scripts/linux/deploy.sh                                   # spätere Updates inkl. SQL-Import
 ```
+
+Exit-Code: 0, wenn alles geklappt hat, 1, wenn der Datenbank-Teil fehlgeschlagen ist (nach dem Beheben
+`install.sh` erneut ausführen).
 
 Der Tunnel funktioniert mit jedem SSH-User, der sich einloggen darf (`fivem@<server-ip>` geht genauso,
 sobald der Service-User einen SSH-Key hat, siehe Deploy-Key unten).
@@ -115,6 +140,10 @@ sobald der Service-User einen SSH-Key hat, siehe Deploy-Key unten).
 3. PIN eingeben, "Link Account" mit dem Cfx.re-Account, Admin-Passwort setzen.
 4. Servername, dann **"Existing Server Data"**: Server Data Folder `/opt/fivem/server-data`, CFG File `server.cfg`.
 5. Speichern. txAdmin startet FXServer mit `+exec server.cfg`; der Lizenzschlüssel kommt aus `secrets.cfg`.
+6. License Allowlist einschalten, siehe [Nur Freunde zulassen](#nur-freunde-zulassen-license-allowlist).
+7. Mit dem Server verbinden, Charakter anlegen und dich zum Qbox-Admin machen: in txAdmin unter Players deine
+   IDs ablesen, in `server.cfg` (Abschnitt "Admin-Rechte") eine `add_principal identifier.license:... group.admin`-Zeile
+   einkommentieren, committen und deployen.
 
 OneSync: steht absichtlich in keiner cfg-Datei, weder in `server.cfg` noch in der von `install.sh` angelegten
 `secrets.cfg`. txAdmin verwaltet OneSync selbst (Settings > FXServer, Standard "on") und würde ein
@@ -134,7 +163,33 @@ runuser -u fivem -- bash -c 'cd /opt/fivem/server-data && bash ../artifacts/run.
 ```
 
 `+set onesync on` muss vor `+exec server.cfg` stehen; ohne das Argument läuft der Direktmodus ohne OneSync
-(`sv_maxclients 32`, ox_lib und alle Frameworks brauchen es).
+(Qbox, ox_lib und `sv_maxclients 32` brauchen es).
+
+### Nur Freunde zulassen (License Allowlist)
+
+FXServer hat **kein Beitrittspasswort**. `sv_master1 ""` markiert den Server in der Serverliste nur als privat
+(der Verbinden-Button ist deaktiviert), er bleibt aber gelistet, und über `connect <ip>:30120` kommt ohne
+Allowlist weiterhin jeder rein. Den Zugang regelt txAdmin:
+
+1. In txAdmin die Einstellungen (Settings) öffnen, im Bereich für die Allowlist bzw. Whitelist den Modus
+   **License Allowlist** wählen (intern `approvedLicense`, Standard ist `disabled`) und speichern. Optional einen
+   Hinweistext für abgewiesene Spieler eintragen ("Allowlist Instructions"), z. B. "Schick die Request ID an einen Admin".
+2. Ein Freund verbindet sich und wird abgewiesen. Die Meldung zeigt ihm eine **Request ID**.
+3. Ein Admin öffnet in txAdmin die Allowlist- bzw. Whitelist-Seite, sucht die Anfrage mit dieser ID und
+   bestätigt sie. Dafür braucht der txAdmin-Account die Berechtigung `players.whitelist` (der Master-Account hat
+   alle Rechte). Abgelehnt werden kann einzeln oder alle auf einmal.
+4. Der Freund verbindet sich erneut und kommt rein. Die Freigabe gilt für seinen `license`-Identifier und liegt in
+   `txData/` (gehört ins Backup).
+
+Wichtig:
+
+- `sv_lan` muss aus bleiben (Standard). Mit `sv_lan` hat kein Spieler einen `license`-Identifier, und die License
+  Allowlist weist jeden ab.
+- Andere Modi: "Admin-only" (nur txAdmin-Admins, z. B. für Wartung), "Discord server Member Allowlist" und
+  "Discord Role Allowlist" (brauchen den Discord-Bot von txAdmin).
+- Die genauen Menü- und Seitennamen können sich zwischen txAdmin-Versionen unterscheiden. Die Angaben hier stammen
+  aus dem txAdmin-Quellcode und sind nicht per Klick in txAdmin 8.1.1 geprüft.
+- Lokal unter Windows funktioniert die Allowlist genauso, sie hängt an txAdmin, nicht am Betriebssystem.
 
 ## Die systemd-Unit
 
@@ -145,6 +200,8 @@ runuser -u fivem -- bash -c 'cd /opt/fivem/server-data && bash ../artifacts/run.
 Description=FiveM FXServer (txAdmin)
 After=network-online.target mariadb.service
 Wants=network-online.target
+# Startet MariaDB mit, falls vorhanden. Fehlt die Unit (Datenbank auf anderem Server), ist das harmlos.
+Wants=mariadb.service
 
 [Service]
 Type=simple
@@ -204,28 +261,45 @@ Nach dem Update: `systemctl restart fxserver` (oder `deploy.sh --update-artifact
 
 ```bash
 scripts/linux/install-resources.sh [--update] [--force] [--manifest <pfad>]
+scripts/linux/install-resources.sh --check [--manifest <pfad>]
 ```
 
 Klont `cfx-server-data` nach `server-data/resources/[cfx-default]` (übersprungen, wenn nicht leer; der
 leere `[local]`-Ordner des Repos wird nicht übernommen) und verarbeitet `server-data/resources.txt`
-(Format in [ressourcen.md](ressourcen.md)). `--update` macht `git pull --ff-only` in vorhandenen Git-Zielen,
-`--force` installiert `[cfx-default]` neu und löscht und lädt jedes Manifest-Ziel neu, `--manifest` nimmt eine
-andere Datei. Braucht `git`, für zip-Einträge `unzip`. Exit 1, wenn mindestens ein Eintrag fehlgeschlagen ist
-(nach Abarbeitung aller Einträge), sonst 0. Fehlt das Standard-Manifest, nur eine Warnung; ein mit `--manifest`
-angegebenes, fehlendes Manifest bricht mit `Das angegebene Manifest wurde nicht gefunden: <pfad>` ab (Exit 1,
-wie `-ManifestPath` unter Windows).
+(Format in [ressourcen.md](ressourcen.md)) Zeile für Zeile: `git`, `zip` und `copy`. `--update` macht
+`git pull --ff-only` in vorhandenen Git-Zielen, `--force` installiert `[cfx-default]` neu und löscht und lädt jedes
+Manifest-Ziel neu, `copy`-Zeilen laufen bei jedem Aufruf. `--manifest` nimmt eine andere Datei. Braucht `git`, für
+zip-Einträge `unzip`. Exit 1, wenn mindestens ein Eintrag fehlgeschlagen ist (nach Abarbeitung aller Einträge),
+sonst 0. Fehlt das Standard-Manifest, nur eine Warnung; ein mit `--manifest` angegebenes, fehlendes Manifest bricht
+mit `Das angegebene Manifest wurde nicht gefunden: <pfad>` ab (Exit 1, wie `-ManifestPath` unter Windows).
+
+`--check` prüft nur das Manifest (Format, Pfade, Reihenfolge der `copy`-Zeilen), ohne Netzwerk und ohne git:
+`[OK] Manifest gueltig: N Eintraege (<pfad>)` mit Exit 0, sonst `Manifest ungueltig: N Fehler (<pfad>)` mit Exit 1.
+Nur mit `--manifest` kombinierbar.
+
+### setup-database.sh
+
+```bash
+sudo bash scripts/linux/setup-database.sh --create [--reset-password] [--db fivem] [--db-user fivem] [--db-port 3306]
+sudo -u fivem bash scripts/linux/setup-database.sh [--import | --mark-applied] [--only '<pfad>'] [--dry-run]
+bash scripts/linux/setup-database.sh --check | --docker
+```
+
+Richtet die Datenbank ein und importiert die SQL-Dateien aus `server-data/database.txt`. Ohne Aktion: `--import`.
+Exit-Codes 0 ok, 1 Abbruch ohne DB-Arbeit, 2 Datenbank nicht erreichbar oder zu alt, 3 SQL-Fehler. Alle Optionen
+und der Ablauf: [datenbank.md](datenbank.md).
 
 ### deploy.sh
 
 ```bash
-scripts/linux/deploy.sh [--no-restart] [--update-artifacts] [--channel <name>]
+scripts/linux/deploy.sh [--no-restart] [--no-sql] [--update-artifacts] [--channel <name>]
 ```
 
 Läuft als Service-User oder als root. Den Service-User liest es aus `User=` der Unit, sonst nimmt es den
-Besitzer des Repo-Ordners, sonst den aktuellen User. Als root werden Git und die Ressourcen-Skripte per
+Besitzer des Repo-Ordners, sonst den aktuellen User. Als root werden Git, die Ressourcen- und Datenbank-Skripte per
 `runuser` an den Service-User delegiert; als anderer Nicht-root-User gibt es eine Warnung wegen Dateirechten.
 
-Schritte:
+Schritte (`git pull --ff-only -> install-resources.sh --update -> setup-database.sh --import -> [update-artifacts.sh] -> systemctl restart fxserver`):
 
 1. `git pull --ff-only --autostash` (nur wenn `<repo>/.git` existiert; Abbruch bei Fehler; loggt `alt -> neu`
    oder `bereits aktuell`), danach `chmod +x scripts/linux/*.sh`. `--autostash` legt lokale Änderungen an
@@ -234,9 +308,17 @@ Schritte:
    Konfliktmarker zurück; `deploy.sh` prüft deshalb `git ls-files --unmerged` und bricht dann mit
    `git pull hat Konflikte hinterlassen ...` ab (Exit 1, kein Ressourcen-Update, kein Neustart).
 2. `install-resources.sh --update` (Abbruch bei Fehler).
-3. Mit `--update-artifacts`: `update-artifacts.sh --channel <kanal>` (Standard `recommended`).
-4. `check_license_key` (nur Warnung).
-5. Neustart: `systemctl restart fxserver` als root, sonst `sudo -n systemctl restart fxserver` (Fehler verweist
+3. SQL-Import: prüft als Service-User (mit der gerade gezogenen `lib.sh`), ob `secrets.cfg` einen aktiven
+   `mysql_connection_string` enthält.
+   - Ja: `setup-database.sh --import`. Schlägt das fehl:
+     `SQL-Import fehlgeschlagen (Exit-Code N), Dienst wird NICHT neu gestartet.` (Exit 1).
+   - Kein String oder keine `secrets.cfg`: Warnung
+     `Kein mysql_connection_string in secrets.cfg, SQL-Import uebersprungen (Qbox braucht die Datenbank).`
+   - `secrets.cfg` nicht lesbar: Abbruch `secrets.cfg nicht lesbar` (Exit 1).
+   - `--no-sql` überspringt den Schritt (`SQL-Import: uebersprungen (--no-sql)`).
+4. Mit `--update-artifacts`: `update-artifacts.sh --channel <kanal>` (Standard `recommended`).
+5. `check_license_key` (nur Warnung).
+6. Neustart: `systemctl restart fxserver` als root, sonst `sudo -n systemctl restart fxserver` (Fehler verweist
    auf `/etc/sudoers.d/fivem-deploy`). Nach 2 s `systemctl is-active fxserver`, sonst Exit 1.
    `--no-restart` überspringt den Neustart. Ohne `systemctl` nur eine Warnung.
 
@@ -254,7 +336,7 @@ versionierten Dateien auf dem Server liegen (txAdmin schreibt z. B. in `server.c
 
 `.github/workflows/deploy.yml` verbindet sich per SSH mit dem Server und führt
 `cd <DEPLOY_PATH> && bash scripts/linux/deploy.sh` aus. Der Workflow läuft manuell über "Run workflow"
-(mit den Eingaben "Artifacts aktualisieren" und Kanal); der Trigger bei Push auf `main` ist in der Datei
+(mit den Eingaben "Artifacts aktualisieren", Kanal und "SQL-Import überspringen", das `--no-sql` anhängt); der Trigger bei Push auf `main` ist in der Datei
 auskommentiert und kann aktiviert werden. Die Concurrency-Gruppe `deploy` verhindert parallele Deploys.
 
 Secrets im Repo (Settings -> Secrets and variables -> Actions):
@@ -307,19 +389,22 @@ Manuell testen, bevor du den Workflow nutzt: `ssh -i deploy_key -p 22 fivem@<ser
   einem Proxy sieht txAdmin nur die Proxy-IP).
 - 3306: MariaDB lauscht standardmäßig nur auf `127.0.0.1`. Für HeidiSQL & Co. einen SSH-Tunnel nutzen:
   `ssh -L 3306:127.0.0.1:3306 root@<server-ip>`.
-- Regeln prüfen: `ufw status numbered`. Hetzner, Netcup & Co. haben oft eine zweite Firewall im Panel.
+- Regeln prüfen: `ufw status numbered`. Viele VPS-Anbieter haben zusätzlich eine Firewall im Kundenpanel.
 
 ## Datenbank (MariaDB)
 
-Mit `--with-mariadb` steht der Verbindungs-String in `secrets.cfg`. Root-Login lokal: `sudo mariadb`
-(unix_socket, kein Passwort). SQL-Dateien importieren:
+`install.sh` installiert MariaDB, legt die Datenbank `fivem` mit den Usern `fivem@localhost` und
+`fivem@127.0.0.1` an, schreibt den Verbindungs-String in `secrets.cfg` und importiert die SQL-Dateien.
+Root-Login lokal: `sudo mariadb` (unix_socket, kein Passwort). Die wichtigsten Befehle:
 
 ```bash
-mariadb fivem < "/opt/fivem/server-data/resources/[vendor]/[esx]/[SQL]/legacy.sql"
+sudo -u fivem bash scripts/linux/setup-database.sh --dry-run            # Stand aller SQL-Dateien
+sudo -u fivem bash scripts/linux/setup-database.sh                      # ausstehende importieren
+sudo bash scripts/linux/setup-database.sh --create --reset-password     # Passwort verloren
 ```
 
-Passwort verloren: `sudo mariadb -e "ALTER USER 'fivem'@'localhost' IDENTIFIED BY 'neuesPasswort';"` und
-den String in `secrets.cfg` anpassen. `install.sh` rotiert vorhandene Passwörter nicht.
+Nach einem neuen Passwort `systemctl restart fxserver`. Versionen, `database.txt`, Import-Buchführung, eigene
+SQL-Dateien und Fehlerbilder: [datenbank.md](datenbank.md).
 
 ## Backup
 
@@ -369,3 +454,9 @@ Wiederherstellen: Dienst stoppen, `txData/` zurückkopieren (Besitzer `fivem:fiv
 | Spieler kommen nicht drauf                                         | `ss -lunp | grep 30120`, `ufw status`, Provider-Firewall, `sv_master1` nicht gesetzt?               |
 | `Zum Entpacken von fx.tar.xz wird 'xz' benoetigt`                  | `apt install xz-utils`.                                                                             |
 | Fehlermeldung zu Nicht-ASCII-Pfaden (txAdmin Fehler 7)             | Repo-Pfad ohne Umlaute wählen, z. B. `/opt/fivem`.                                                  |
+| `MariaDB 10.6... ist zu alt. Qbox braucht mindestens 10.9`         | Ubuntu 22.04: MariaDB aus dem offiziellen Repository installieren ([datenbank.md](datenbank.md#welche-version)), dann `install.sh` erneut. |
+| `Datenbank: FEHLGESCHLAGEN (siehe oben)` am Ende von `install.sh`  | Meldungen der Schritte 5/9 und 6/9 lesen, Ursache beheben, `install.sh` erneut ausführen.           |
+| `SQL-Import fehlgeschlagen (Exit-Code N), Dienst wird NICHT neu gestartet.` | `sudo -u fivem bash scripts/linux/setup-database.sh --dry-run`, Meldung lesen, siehe [datenbank.md](datenbank.md#exit-codes). |
+| `Kein mysql_connection_string in secrets.cfg, SQL-Import uebersprungen` | `sudo bash scripts/linux/setup-database.sh --create` (lokale MariaDB) oder String von Hand eintragen. |
+| `User existiert, Passwort unbekannt; --reset-password setzt ein neues` | `sudo bash scripts/linux/setup-database.sh --create --reset-password`, danach Dienst neu starten.   |
+| Spieler wird abgewiesen, Meldung mit Request ID                    | License Allowlist ist an: Anfrage in txAdmin freigeben ([Nur Freunde zulassen](#nur-freunde-zulassen-license-allowlist)). |

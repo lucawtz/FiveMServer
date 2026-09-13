@@ -61,6 +61,12 @@ if not errorlevel 1 (
     echo.
 )
 
+findstr /R /C:"^ *set  *mysql_connection_string" "%DATA%\secrets.cfg" >nul 2>&1
+if errorlevel 1 (
+    echo [WARNUNG] In secrets.cfg fehlt mysql_connection_string. Qbox braucht die Datenbank: scripts\windows\setup-database.bat -Create -Import
+    echo.
+)
+
 cd /d "%DATA%"
 
 echo.

@@ -5,9 +5,13 @@
 .DESCRIPTION
     Lädt die FXServer-Artifacts über das offizielle Changelog-API herunter, entpackt sie nach
     artifacts\, installiert die Basis-Ressourcen (cfx-server-data) sowie die Einträge aus
-    server-data\resources.txt und legt server-data\secrets.cfg aus der Vorlage an, falls sie fehlt.
+    server-data\resources.txt, legt server-data\secrets.cfg aus der Vorlage an, falls sie fehlt,
+    und importiert die SQL-Dateien aus server-data\database.txt (setup-database.ps1), sobald ein
+    mysql_connection_string in secrets.cfg steht.
     Das Skript ist idempotent und kann gefahrlos mehrfach ausgeführt werden.
     Voraussetzung: Windows PowerShell 5.1 (Standard in Windows 10/11), git (winget install Git.Git).
+    Qbox braucht MariaDB ab 10.9: setup-database.bat -InstallMariaDB, danach -Create -Import
+    (oder install.bat -SetupDatabase).
 
 .PARAMETER Channel
     Artifact-Kanal: recommended (Standard), latest oder optional.
@@ -34,18 +38,30 @@
     Überspringt den Ressourcen-Schritt. Nur für reine Artifact-Updates gedacht, wenn die Ressourcen schon
     installiert sind. Die Prüfung der Basis-Ressourcen läuft trotzdem (siehe Exit-Code 2).
 
+.PARAMETER SetupDatabase
+    Schritt 4 richtet die Datenbank ein: setup-database.ps1 -Create -Import (fragt das MariaDB-Root-Passwort
+    ab, legt Datenbank und User an, schreibt mysql_connection_string und importiert die SQL-Dateien).
+    MariaDB muss installiert sein (setup-database.bat -InstallMariaDB).
+
+.PARAMETER SkipDatabase
+    Überspringt Schritt 4 (Datenbank) komplett. Nicht zusammen mit -SetupDatabase.
+
 .EXAMPLE
     .\install.ps1
+.EXAMPLE
+    .\install.ps1 -SetupDatabase
 .EXAMPLE
     .\install.ps1 -Channel latest -UpdateArtifacts
 .EXAMPLE
     .\install.ps1 -UpdateResources
 .EXAMPLE
-    .\install.ps1 -ForceArtifacts -SkipResources
+    .\install.ps1 -ForceArtifacts -SkipResources -SkipDatabase
 
 .NOTES
-    Exit-Codes: 0 = alles ok, 1 = Fehler (Abbruch), 2 = fertig, aber Ressourcen unvollständig (einzelne
-    Manifest-Einträge fehlgeschlagen oder Basis-Ressourcen mapmanager/spawnmanager/basic-gamemode fehlen).
+    Exit-Codes: 0 = alles ok, 1 = Fehler (Abbruch, auch -SetupDatabase zusammen mit -SkipDatabase),
+    2 = fertig, aber Ressourcen oder Datenbank unvollständig (einzelne Manifest-Einträge fehlgeschlagen,
+    Basis-Ressourcen mapmanager/spawnmanager/baseevents fehlen oder setup-database.ps1 meldet einen
+    Exit-Code ungleich 0). Fehlt nur der mysql_connection_string, bleibt der Exit-Code unverändert.
 #>
 [CmdletBinding()]
 param(
@@ -59,7 +75,9 @@ param(
     [switch]$ForceArtifacts,
     [switch]$UpdateResources,
     [switch]$ForceResources,
-    [switch]$SkipResources
+    [switch]$SkipResources,
+    [switch]$SetupDatabase,
+    [switch]$SkipDatabase
 )
 
 Set-StrictMode -Version 2.0
@@ -326,9 +344,9 @@ function Install-Artifacts($Info, [string]$ArtifactsDir, [string]$ToolsDir, [str
 # ---------------------------------------------------------------------------
 # server.cfg startet diese Ressourcen aus [cfx-default]. Fehlen sie, fährt der Server hoch, aber niemand spawnt.
 $BaseResources = @(
-    @{ Name = 'mapmanager';     Path = '[managers]\mapmanager' },
-    @{ Name = 'spawnmanager';   Path = '[managers]\spawnmanager' },
-    @{ Name = 'basic-gamemode'; Path = '[gamemodes]\basic-gamemode' }
+    @{ Name = 'mapmanager';   Path = '[managers]\mapmanager' },
+    @{ Name = 'spawnmanager'; Path = '[managers]\spawnmanager' },
+    @{ Name = 'baseevents';   Path = '[system]\baseevents' }
 )
 
 function Get-MissingBaseResource([string]$ResourcesDir) {
@@ -358,6 +376,18 @@ function Test-LicenseKeyMissing([string]$SecretsFile) {
     return $true
 }
 
+function Test-ConnectionStringConfigured([string]$SecretsFile) {
+    # true, wenn secrets.cfg eine aktive Zeile 'set mysql_connection_string ...' enthält
+    # (gleiche Regel wie setup-database.ps1: Zeilen mit '#' oder '//' am Anfang zählen nicht)
+    if (-not (Test-Path -LiteralPath $SecretsFile -PathType Leaf)) { return $false }
+    foreach ($line in [System.IO.File]::ReadAllLines($SecretsFile)) {
+        $trimmed = $line.TrimStart()
+        if ($trimmed.StartsWith('#') -or $trimmed.StartsWith('//')) { continue }
+        if ($line -cmatch '^\s*set\s+mysql_connection_string\s+("([^"]*)"|(\S+))') { return $true }
+    }
+    return $false
+}
+
 # ---------------------------------------------------------------------------
 # Hauptprogramm
 # ---------------------------------------------------------------------------
@@ -374,12 +404,18 @@ $fxServerExe = Join-Path $artifactsDir 'FXServer.exe'
 $artifactSummary = 'unverändert'
 $resourceSummary = 'übersprungen'
 $secretsSummary = 'vorhanden'
+$databaseSummary = 'nicht ausgeführt'
+$dbNextSteps = $false
 $licenseMissing = $false
 
 try {
     Write-Host ""
     Write-Host "FiveM Server - Installation (Windows)" -ForegroundColor White
     Write-Host "Repo: $root"
+
+    if ($SetupDatabase -and $SkipDatabase) {
+        throw "-SetupDatabase und -SkipDatabase schließen sich aus. Bitte nur einen der beiden Parameter angeben."
+    }
 
     if ($PSVersionTable.PSVersion.Major -lt 5) {
         throw "Es wird mindestens Windows PowerShell 5.1 benötigt (gefunden: $($PSVersionTable.PSVersion))."
@@ -402,7 +438,7 @@ try {
     }
 
     # -----------------------------------------------------------------------
-    Write-Step "Schritt 1/3: FXServer-Artifacts (Kanal: $Channel)"
+    Write-Step "Schritt 1/4: FXServer-Artifacts (Kanal: $Channel)"
     # Installiert heißt: FXServer.exe UND VERSION.txt. VERSION.txt entsteht erst nach dem vollständigen Entpacken,
     # FXServer.exe steht im Archiv dagegen vor libnode22.dll und der VC-Runtime und läge nach einem Abbruch schon da.
     $hasBinary = (Test-Path -LiteralPath $fxServerExe) -and (Test-Path -LiteralPath $versionFile)
@@ -433,7 +469,7 @@ try {
     }
 
     # -----------------------------------------------------------------------
-    Write-Step "Schritt 2/3: Ressourcen (cfx-server-data + resources.txt)"
+    Write-Step "Schritt 2/4: Ressourcen (cfx-server-data + resources.txt)"
     if ($SkipResources) {
         Write-Info "Übersprungen (-SkipResources)."
     } else {
@@ -463,7 +499,7 @@ try {
     }
 
     # -----------------------------------------------------------------------
-    Write-Step "Schritt 3/3: server-data\secrets.cfg"
+    Write-Step "Schritt 3/4: server-data\secrets.cfg"
     if (-not (Test-Path -LiteralPath $secretsFile)) {
         if (Test-Path -LiteralPath $secretsExample) {
             [System.IO.File]::Copy($secretsExample, $secretsFile, $false)
@@ -486,6 +522,40 @@ try {
     } else {
         $licenseMissing = $true
     }
+
+    # -----------------------------------------------------------------------
+    Write-Step "Schritt 4/4: Datenbank (MariaDB)"
+    $dbScript = Join-Path $PSScriptRoot 'setup-database.ps1'
+    $dbRc = $null
+    if ($SkipDatabase) {
+        Write-Info "Übersprungen (-SkipDatabase)."
+        $databaseSummary = 'übersprungen'
+    } elseif (-not (Test-Path -LiteralPath $dbScript)) {
+        throw "setup-database.ps1 wurde nicht gefunden: $dbScript"
+    } elseif ($SetupDatabase) {
+        Write-Info "Richte Datenbank ein und importiere SQL-Dateien (setup-database.ps1 -Create -Import) ..."
+        $global:LASTEXITCODE = 0
+        & $dbScript -Create -Import
+        $dbRc = $global:LASTEXITCODE
+    } elseif (Test-ConnectionStringConfigured $secretsFile) {
+        Write-Info "mysql_connection_string ist gesetzt, importiere ausstehende SQL-Dateien (setup-database.ps1 -Import) ..."
+        $global:LASTEXITCODE = 0
+        & $dbScript -Import
+        $dbRc = $global:LASTEXITCODE
+    } else {
+        Write-Warn "In secrets.cfg fehlt mysql_connection_string. Qbox startet ohne Datenbank nicht."
+        $databaseSummary = 'nicht eingerichtet'
+        $dbNextSteps = $true
+    }
+    if ($null -ne $dbRc) {
+        if ($dbRc -eq 0) {
+            $databaseSummary = 'ok'
+        } else {
+            Write-Warn "setup-database.ps1 ist mit Exit-Code $dbRc beendet worden (siehe Meldungen oben)."
+            $databaseSummary = "unvollständig (setup-database.ps1 Exit-Code $dbRc)"
+            $exitCode = 2
+        }
+    }
 } catch {
     Write-Host ""
     Write-Fail "Installation abgebrochen: $($_.Exception.Message)"
@@ -506,10 +576,18 @@ Write-Host "  Repo:         $root"
 Write-Host "  Artifacts:    $artifactSummary"
 Write-Host "  Ressourcen:   $resourceSummary"
 Write-Host "  secrets.cfg:  $secretsSummary"
+Write-Host "  Datenbank:    $databaseSummary"
 if ($licenseMissing) {
     Write-Host ""
     Write-Warn "WICHTIG: Ohne Lizenzschlüssel startet der Spielserver nicht. Trage in server-data\secrets.cfg"
     Write-Warn "         sv_licenseKey ein. Einen kostenlosen Key bekommst du unter https://portal.cfx.re/"
+}
+if ($dbNextSteps) {
+    Write-Host ""
+    Write-Host " Datenbank einrichten (Pflicht für Qbox)" -ForegroundColor White
+    Write-Host "  1. scripts\windows\setup-database.bat -InstallMariaDB"
+    Write-Host "  2. scripts\windows\setup-database.bat -Create -Import"
+    Write-Host "  Anleitung: docs\datenbank.md"
 }
 Write-Host ""
 Write-Host " Nächste Schritte" -ForegroundColor White
@@ -521,9 +599,10 @@ Write-Host "     Beim ersten Mal in txAdmin 'Existing Server Data' wählen: Ordn
 Write-Host "  4. Im Spiel F8 drücken und eingeben: connect localhost:30120"
 Write-Host "  Hinweis: Nicht mit der Maus ins Serverfenster klicken. Eine Markierung hält den Server an, Esc hebt sie auf."
 Write-Host "  Freunde verbinden: docs\windows-lokal.md, Abschnitt 'Freunde verbinden'."
+Write-Host "  Nur Freunde zulassen: docs\linux-server.md, Abschnitt 'Nur Freunde zulassen (License Allowlist)'."
 Write-Host ""
 if ($exitCode -eq 2) {
-    Write-Warn "Fertig, aber die Ressourcen sind unvollständig (Exit-Code 2). Bitte die Warnungen oben lesen."
+    Write-Warn "Fertig, aber Ressourcen oder Datenbank sind unvollständig (Exit-Code 2). Bitte die Warnungen oben lesen."
 } else {
     Write-Ok "Fertig."
 }

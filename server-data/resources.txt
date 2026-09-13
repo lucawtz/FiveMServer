@@ -1,108 +1,172 @@
 # ============================================================================
-#  resources.txt - Manifest für Fremd-Ressourcen (Third Party)
+#  resources.txt - Manifest fuer Fremd-Ressourcen (aktiv: Qbox)
 # ============================================================================
 #
-#  Wird von scripts/windows/install-resources.ps1 und scripts/linux/
-#  install-resources.sh gelesen. Alles hier landet unter server-data/resources/.
+#  Uebersetzung des offiziellen txAdmin-Rezepts von Qbox:
+#    https://github.com/Qbox-project/txAdminRecipe  (qbox.yaml, Commit a4be9fc
+#    vom 09.07.2026). Quellen, Branches und Versionen wie im Rezept.
+#    Abweichungen: docs/frameworks.md, Abschnitt "Abweichungen vom Rezept".
+#
+#  Gelesen von scripts/windows/install-resources.ps1 und
+#  scripts/linux/install-resources.sh. Alles landet unter server-data/resources/.
+#  cfx-server-data (mapmanager, spawnmanager, baseevents ...) installieren die
+#  Skripte selbst nach [cfx-default], das steht nicht hier.
 #
 #  Format (ein Eintrag pro Zeile, Felder durch Leerzeichen getrennt):
 #
 #    git <ziel> <git-url> [ref]
-#        git clone --depth 1 [--branch ref] nach server-data/resources/<ziel>
-#        Mit --update / -Update: 'git pull --ff-only', falls <ziel> ein Git-Repo ist.
+#        git clone --depth 1 [--branch ref]. Mit --update / -Update: git pull --ff-only.
 #
 #    zip <ziel> <url>
-#        Archiv herunterladen und entpacken. Hat das Archiv genau EINEN
-#        Ordner auf oberster Ebene, wird dessen INHALT zu <ziel> (so sind die
-#        Release-Zips von oxmysql und ox_lib gebaut). Sonst landet alles
-#        direkt in <ziel>.
+#        Herunterladen und entpacken. Hat das Archiv genau EINEN Oberordner,
+#        wird dessen Inhalt zu <ziel>. --update aendert zip-Ziele nicht, nur --force.
 #
-#  <ziel> ist relativ zu server-data/resources/ und darf Kategorie-Ordner in
-#  eckigen Klammern enthalten, z. B. [vendor]/oxmysql. FXServer durchsucht
-#  Klammer-Ordner rekursiv, der Ressourcenname ist immer der letzte Ordnername.
+#    copy <quelle> <ziel>
+#        Kopiert eine Datei oder einen Ordner aus einer weiter oben installierten
+#        Zeile ueber eine Datei bzw. einen Ordner einer anderen Ressource.
+#        Beide Pfade relativ zu server-data/resources/. Laeuft bei JEDEM Aufruf:
+#        Dateien werden nur bei Unterschieden geschrieben, Ordner komplett ersetzt.
+#        Eigene Aenderungen am Ziel gehen dabei verloren.
+#
+#  <ziel> darf Kategorie-Ordner in eckigen Klammern enthalten. 'ensure [qbx]' in
+#  server.cfg startet alles unter einem Ordner [qbx], auch innerhalb von [vendor].
+#  Ordner mit '.' am Anfang (hier [vendor]/.sources) ignoriert FXServer: dort
+#  liegen Quell-Repos, die selbst keine Ressourcen sind.
 #
 #  Regeln:
-#    - Zeilen, die mit '#' beginnen, und Leerzeilen werden ignoriert.
-#    - Vorhandene Ziele werden übersprungen, außer mit --update / -Update
-#      (nur git) oder --force / -Force (neu herunterladen bzw. neu klonen).
-#    - Alles unter [vendor]/ und [cfx-default]/ ist in .gitignore, nur diese
-#      Manifest-Datei wird committet.
-#    - Nach der Installation die passenden 'ensure'-Zeilen in server.cfg
-#      einkommentieren. Reihenfolge: oxmysql -> ox_lib -> Framework.
+#    - Zeilen mit '#' am Anfang und Leerzeilen werden ignoriert.
+#    - Reihenfolge zaehlt fuer copy: Quelle und Zielordner muessen weiter oben stehen
+#      (install-resources --check prueft das).
+#    - Vorhandene git/zip-Ziele werden uebersprungen, ausser mit --update / -Update
+#      (nur git) oder --force / -Force.
+#    - [vendor]/ und [cfx-default]/ sind in .gitignore, nur diese Datei ist in Git.
+#    - ensure-Zeilen stehen in server.cfg, SQL-Dateien in database.txt.
 #
-#  Zum Aktivieren eines Blocks einfach das führende '#' entfernen.
+#  Andere Frameworks (ESX Legacy, QBCore): docs/frameworks.md
 # ============================================================================
 
 
 # ----------------------------------------------------------------------------
-#  Datenbank-Anbindung: oxmysql (Release-Zip, enthält Ordner "oxmysql/")
-#  Braucht 'set mysql_connection_string ...' in secrets.cfg und FXServer >= 12913.
-#  Stellt auch 'mysql-async' und 'ghmattimysql' bereit.
+#  Rezept-Repository (keine Ressource): liefert items.lua und qbox.sql
 # ----------------------------------------------------------------------------
-#zip [vendor]/oxmysql https://github.com/overextended/oxmysql/releases/latest/download/oxmysql.zip
-
-# ----------------------------------------------------------------------------
-#  Bibliothek: ox_lib (Release-Zip, enthält Ordner "ox_lib/")
-#  Braucht OneSync (txAdmin: Standard an, Direkt-Modus: Startargument '+set onesync on').
-#  Pflicht für Qbox, optional für ESX/QBCore.
-# ----------------------------------------------------------------------------
-#zip [vendor]/ox_lib https://github.com/overextended/ox_lib/releases/latest/download/ox_lib.zip
-
-# ----------------------------------------------------------------------------
-#  Sprachchat: pma-voice (empfohlen, wird von allen drei Frameworks genutzt)
-# ----------------------------------------------------------------------------
-#git [vendor]/pma-voice https://github.com/AvarianKnight/pma-voice.git
+git [vendor]/.sources/qbox-recipe https://github.com/qbox-project/txAdminRecipe.git main
 
 
-# ============================================================================
-#  Frameworks: nur EINES auswählen. Alle brauchen oxmysql und eine MariaDB.
-#  Schritt-für-Schritt-Anleitung inkl. SQL-Import: docs/frameworks.md
-# ============================================================================
+# ----------------------------------------------------------------------------
+#  [standalone]
+# ----------------------------------------------------------------------------
+git [vendor]/[standalone]/bob74_ipl https://github.com/Bob74/bob74_ipl.git master
+git [vendor]/[standalone]/safecracker https://github.com/qbox-project/safecracker.git main
+zip [vendor]/[standalone]/screencapture https://github.com/itschip/screencapture/releases/latest/download/screencapture.zip
+git [vendor]/[standalone]/mhacking https://github.com/qbox-project/mhacking.git main
+git [vendor]/[standalone]/scully_emotemenu https://github.com/Scullyy/scully_emotemenu.git main
+git [vendor]/[standalone]/ultra-voltlab https://github.com/ultrahacx/ultra-voltlab.git main
+zip [vendor]/[standalone]/Renewed-Banking https://github.com/Renewed-Scripts/Renewed-Banking/releases/latest/download/Renewed-Banking.zip
+zip [vendor]/[standalone]/illenium-appearance https://github.com/iLLeniumStudios/illenium-appearance/releases/latest/download/illenium-appearance.zip
+# MugShotBase64 liegt im Repo im Unterordner MugShotBase64/. Das Repo wird in den
+# Kategorie-Ordner [MugShotBase64] geklont, FXServer findet die Ressource darin.
+git [vendor]/[standalone]/[MugShotBase64] https://github.com/BaziForYou/MugShotBase64.git main
+zip [vendor]/[standalone]/Renewed-Weathersync https://github.com/Renewed-Scripts/Renewed-Weathersync/releases/latest/download/Renewed-Weathersync.zip
+zip [vendor]/[standalone]/xt-prison https://github.com/xT-Development/xt-prison/releases/latest/download/xt-prison.zip
+zip [vendor]/[standalone]/vehiclehandler https://github.com/QuantumMalice/vehiclehandler/releases/latest/download/vehiclehandler.zip
+# Das Rezept kopiert zusaetzlich sein Logo ueber html/assets/logo.png, das entfaellt hier.
+zip [vendor]/[standalone]/loadscreen https://github.com/D4isDAVID/loadscreen/releases/latest/download/loadscreen.zip
+zip [vendor]/[standalone]/mana_audio https://github.com/Manason/mana_audio/releases/latest/download/mana_audio.zip
+
 
 # ----------------------------------------------------------------------------
-#  ESX Legacy (esx-framework/esx_core, Branch main, Version 1.15.x)
-#  Das Repo hat keine Release-Assets, deshalb wird es komplett geklont. Die
-#  eigentlichen Ressourcen liegen darin unter [core]/ (es_extended, esx_lib,
-#  esx_menu_*, ...). Weitere Ordner wie [SQL]/ oder .github/ ignoriert FXServer.
-#  Danach: SQL importieren aus [vendor]/[esx]/[SQL]/legacy.sql
-#          (legt KEINE Datenbank an, die Datenbank "fivem" muss existieren)
-#  server.cfg: ensure oxmysql, ensure esx_lib, ensure es_extended, ensure [core]
+#  [voice]
 # ----------------------------------------------------------------------------
-#git [vendor]/[esx] https://github.com/esx-framework/esx_core.git main
+git [vendor]/[voice]/pma-voice https://github.com/AvarianKnight/pma-voice.git main
+zip [vendor]/[voice]/mm_radio https://github.com/qbox-project/mm_radio/releases/latest/download/mm_radio.zip
+
 
 # ----------------------------------------------------------------------------
-#  QBCore (Organisation ist nach github.com/qbcore-fivem umgezogen)
-#  Es gibt keine offizielle Minimal-Liste; das offizielle txAdmin-Rezept
-#  installiert rund 60 qb-* Ressourcen. Unten ein kleiner Startsatz, weitere
-#  Repos nach demselben Muster ergänzen. qb-core braucht kein ox_lib.
-#  Danach: SQL importieren aus [vendor]/[qb]/qb-core/qbcore.sql
-#  server.cfg: ensure oxmysql, ensure qb-core, ensure [qb]
-#              plus: setr qb_locale "de"   und   setr UseTarget false
+#  [qbx]  Qbox-Kern und Jobs
 # ----------------------------------------------------------------------------
-#git [vendor]/[qb]/qb-core https://github.com/qbcore-fivem/qb-core.git main
-#git [vendor]/[qb]/qb-multicharacter https://github.com/qbcore-fivem/qb-multicharacter.git main
-#git [vendor]/[qb]/qb-spawn https://github.com/qbcore-fivem/qb-spawn.git main
-#git [vendor]/[qb]/qb-apartments https://github.com/qbcore-fivem/qb-apartments.git main
-#git [vendor]/[qb]/qb-clothing https://github.com/qbcore-fivem/qb-clothing.git main
-#git [vendor]/[qb]/qb-weathersync https://github.com/qbcore-fivem/qb-weathersync.git main
-#git [vendor]/[qb]/qb-smallresources https://github.com/qbcore-fivem/qb-smallresources.git main
-#git [vendor]/[qb]/qb-inventory https://github.com/qbcore-fivem/qb-inventory.git main
-#git [vendor]/[qb]/qb-target https://github.com/qbcore-fivem/qb-target.git main
-#git [vendor]/[qb]/qb-menu https://github.com/qbcore-fivem/qb-menu.git main
-#git [vendor]/[qb]/qb-input https://github.com/qbcore-fivem/qb-input.git main
-#git [vendor]/[qb]/qb-hud https://github.com/qbcore-fivem/qb-hud.git main
+git [vendor]/[qbx]/qbx_core https://github.com/qbox-project/qbx_core.git main
+git [vendor]/[qbx]/qbx_vehicles https://github.com/qbox-project/qbx_vehicles.git main
+git [vendor]/[qbx]/qbx_scoreboard https://github.com/qbox-project/qbx_scoreboard.git main
+git [vendor]/[qbx]/qbx_adminmenu https://github.com/qbox-project/qbx_adminmenu.git main
+git [vendor]/[qbx]/qbx_vehiclesales https://github.com/qbox-project/qbx_vehiclesales.git main
+git [vendor]/[qbx]/qbx_vehicleshop https://github.com/qbox-project/qbx_vehicleshop.git main
+git [vendor]/[qbx]/qbx_houserobbery https://github.com/qbox-project/qbx_houserobbery.git main
+git [vendor]/[qbx]/qbx_hud https://github.com/qbox-project/qbx_hud.git main
+git [vendor]/[qbx]/qbx_seatbelt https://github.com/qbox-project/qbx_seatbelt.git main
+git [vendor]/[qbx]/qbx_management https://github.com/qbox-project/qbx_management.git main
+git [vendor]/[qbx]/qbx_weed https://github.com/qbox-project/qbx_weed.git main
+git [vendor]/[qbx]/qbx_lapraces https://github.com/qbox-project/qbx_lapraces.git main
+git [vendor]/[qbx]/qbx_garages https://github.com/qbox-project/qbx_garages.git main
+git [vendor]/[qbx]/qbx_ambulancejob https://github.com/qbox-project/qbx_ambulancejob.git main
+git [vendor]/[qbx]/qbx_medical https://github.com/qbox-project/qbx_medical.git main
+git [vendor]/[qbx]/qbx_radialmenu https://github.com/qbox-project/qbx_radialmenu.git main
+git [vendor]/[qbx]/qbx_police https://github.com/qbox-project/qbx_police.git main
+git [vendor]/[qbx]/qbx_properties https://github.com/qbox-project/qbx_properties.git main
+git [vendor]/[qbx]/qbx_vehiclekeys https://github.com/qbox-project/qbx_vehiclekeys.git main
+git [vendor]/[qbx]/qbx_mechanicjob https://github.com/qbox-project/qbx_mechanicjob.git main
+git [vendor]/[qbx]/qbx_vineyard https://github.com/qbox-project/qbx_vineyard.git main
+git [vendor]/[qbx]/qbx_scrapyard https://github.com/qbox-project/qbx_scrapyard.git main
+git [vendor]/[qbx]/qbx_towjob https://github.com/qbox-project/qbx_towjob.git main
+git [vendor]/[qbx]/qbx_streetraces https://github.com/qbox-project/qbx_streetraces.git main
+git [vendor]/[qbx]/qbx_storerobbery https://github.com/qbox-project/qbx_storerobbery.git main
+git [vendor]/[qbx]/qbx_spawn https://github.com/qbox-project/qbx_spawn.git main
+git [vendor]/[qbx]/qbx_smallresources https://github.com/qbox-project/qbx_smallresources.git main
+git [vendor]/[qbx]/qbx_recyclejob https://github.com/qbox-project/qbx_recyclejob.git main
+git [vendor]/[qbx]/qbx_diving https://github.com/qbox-project/qbx_diving.git main
+git [vendor]/[qbx]/qbx_divegear https://github.com/qbox-project/qbx_divegear.git main
+git [vendor]/[qbx]/qbx_cityhall https://github.com/qbox-project/qbx_cityhall.git main
+git [vendor]/[qbx]/qbx_truckrobbery https://github.com/qbox-project/qbx_truckrobbery.git main
+git [vendor]/[qbx]/qbx_pawnshop https://github.com/qbox-project/qbx_pawnshop.git main
+git [vendor]/[qbx]/qbx_taxijob https://github.com/qbox-project/qbx_taxijob.git main
+git [vendor]/[qbx]/qbx_busjob https://github.com/qbox-project/qbx_busjob.git main
+git [vendor]/[qbx]/qbx_newsjob https://github.com/qbox-project/qbx_newsjob.git main
+git [vendor]/[qbx]/qbx_jewelery https://github.com/qbox-project/qbx_jewelery.git main
+git [vendor]/[qbx]/qbx_bankrobbery https://github.com/qbox-project/qbx_bankrobbery.git main
+git [vendor]/[qbx]/qbx_truckerjob https://github.com/qbox-project/qbx_truckerjob.git main
+git [vendor]/[qbx]/qbx_garbagejob https://github.com/qbox-project/qbx_garbagejob.git main
+git [vendor]/[qbx]/qbx_drugs https://github.com/qbox-project/qbx_drugs.git main
+git [vendor]/[qbx]/qbx_idcard https://github.com/Qbox-project/qbx_idcard.git main
+git [vendor]/[qbx]/qbx_binoculars https://github.com/Qbox-project/qbx_binoculars.git main
+git [vendor]/[qbx]/qbx_carwash https://github.com/Qbox-project/qbx_carwash.git main
+git [vendor]/[qbx]/qbx_fireworks https://github.com/Qbox-project/qbx_fireworks.git main
+git [vendor]/[qbx]/qbx_density https://github.com/Qbox-project/qbx_density.git main
+git [vendor]/[qbx]/qbx_customs https://github.com/Qbox-project/qbx_customs.git main
+git [vendor]/[qbx]/qbx_chat_theme https://github.com/Qbox-project/qbx_chat_theme.git main
+
 
 # ----------------------------------------------------------------------------
-#  Qbox (Qbox-project/qbx_core)
-#  Braucht zwingend ox_lib UND oxmysql (beide Blöcke oben aktivieren),
-#  OneSync und FXServer >= 10731. MariaDB mindestens 10.9.
-#  Das offizielle Rezept nutzt außerdem ox_target, ox_inventory und viele
-#  qbx_* Ressourcen, siehe docs/frameworks.md.
-#  Danach: SQL importieren aus [vendor]/[qbx]/qbx_core/qbx_core.sql
-#  server.cfg: ensure oxmysql, ensure ox_lib, ensure qbx_core, ensure ox_target,
-#              ensure ox_inventory, ensure [qbx]
-#              plus: setr qb_locale "de"   und   setr ox:locale "de"
+#  [ox]  Bibliothek, Datenbank-Anbindung, Target, Inventar, Tueren, Tanken
 # ----------------------------------------------------------------------------
-#zip [vendor]/ox_target https://github.com/overextended/ox_target/releases/latest/download/ox_target.zip
-#zip [vendor]/ox_inventory https://github.com/overextended/ox_inventory/releases/latest/download/ox_inventory.zip
-#git [vendor]/[qbx]/qbx_core https://github.com/Qbox-project/qbx_core.git main
+zip [vendor]/[ox]/ox_lib https://github.com/overextended/ox_lib/releases/latest/download/ox_lib.zip
+zip [vendor]/[ox]/ox_target https://github.com/overextended/ox_target/releases/latest/download/ox_target.zip
+zip [vendor]/[ox]/oxmysql https://github.com/overextended/oxmysql/releases/latest/download/oxmysql.zip
+zip [vendor]/[ox]/ox_doorlock https://github.com/overextended/ox_doorlock/releases/latest/download/ox_doorlock.zip
+zip [vendor]/[ox]/ox_inventory https://github.com/overextended/ox_inventory/releases/latest/download/ox_inventory.zip
+# Qbox-Items fuer ox_inventory aus dem Rezept-Repository
+copy [vendor]/.sources/qbox-recipe/items.lua [vendor]/[ox]/ox_inventory/data/items.lua
+# Item-Bilder von Qbox ersetzen den Bilder-Ordner von ox_inventory komplett
+git [vendor]/.sources/qbx_invimages https://github.com/Qbox-project/qbx_invimages.git main
+copy [vendor]/.sources/qbx_invimages/images [vendor]/[ox]/ox_inventory/web/images
+git [vendor]/[ox]/ox_fuel https://github.com/overextended/ox_fuel.git main
+
+
+# ----------------------------------------------------------------------------
+#  [npwd]  Handy (Version im Rezept fest auf 3.16.0)
+# ----------------------------------------------------------------------------
+zip [vendor]/[npwd]/npwd https://github.com/project-error/npwd/releases/download/3.16.0/npwd.zip
+git [vendor]/[npwd]/qbx_npwd https://github.com/Qbox-project/qbx_npwd.git main
+# Qbox-Konfiguration fuer npwd (das Rezept verschiebt die Datei, hier wird kopiert)
+copy [vendor]/[npwd]/qbx_npwd/config.json [vendor]/[npwd]/npwd/config.json
+
+
+# ----------------------------------------------------------------------------
+#  [npwd-apps]
+# ----------------------------------------------------------------------------
+zip [vendor]/[npwd-apps]/npwd_qbx_garages https://github.com/Qbox-project/npwd_qbx_garages/releases/latest/download/npwd_qbx_garages.zip
+zip [vendor]/[npwd-apps]/npwd_qbx_mail https://github.com/Qbox-project/npwd_qbx_mail/releases/latest/download/npwd_qbx_mail.zip
+
+
+# ----------------------------------------------------------------------------
+#  [assets]
+# ----------------------------------------------------------------------------
+git [vendor]/[assets]/pillbox https://github.com/Lorenc95/pillbox.git main

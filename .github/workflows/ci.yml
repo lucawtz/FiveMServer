@@ -3,6 +3,8 @@
 #   powershell -> Parser (Windows PowerShell 5.1) + PSScriptAnalyzer (Severity Error sowie
 #                 Kompatibilitaetsregeln PSUseCompatibleSyntax/PSUseCompatibleCommands fuer 5.1) fuer scripts/windows/*.ps1
 #   lua        -> luac5.4 -p fuer alle .lua unter server-data/resources/[local]
+#   manifests  -> install-resources.sh --check (resources.txt), setup-database.sh --check (database.txt),
+#                 kein OneSync-Setter und keine Geheimnisse in committeten cfg-Dateien, LF in server-data-Textdateien
 name: CI
 
 on:
@@ -146,3 +148,53 @@ jobs:
           if [ "$found" -eq 0 ]; then
             echo "Keine Lua-Dateien gefunden."
           fi
+
+  manifests:
+    name: Manifeste und cfg-Regeln
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: resources.txt pruefen (install-resources.sh --check)
+        shell: bash
+        run: bash scripts/linux/install-resources.sh --check
+
+      - name: database.txt pruefen (setup-database.sh --check)
+        shell: bash
+        run: bash scripts/linux/setup-database.sh --check
+
+      - name: Kein OneSync-Setter in committeten cfg-Dateien
+        shell: bash
+        run: |
+          # grep ohne Treffer (Exit 1) = bestanden. OneSync verwaltet txAdmin, der CFG-Validator wuerde
+          # jede onesync-Zeile auskommentieren (docs/entscheidungen.md).
+          if git ls-files -z 'server-data/*.cfg' 'server-data/*.example' \
+              | xargs -0 -r grep -nE '^[[:space:]]*(set[rs]?[[:space:]]+)?onesync(_[A-Za-z]+)?([[:space:]]|$)'; then
+            echo "::error::OneSync darf in keiner cfg-Datei gesetzt werden (siehe Treffer oben)."
+            exit 1
+          fi
+          echo "Kein OneSync-Setter gefunden."
+
+      - name: Keine Geheimnisse in committeten cfg-Dateien
+        shell: bash
+        run: |
+          # Lizenz, Passwoerter, Datenbank-String und Tokens gehoeren nur in server-data/secrets.cfg (gitignored).
+          if git ls-files -z 'server-data/*.cfg' \
+              | xargs -0 -r grep -nE '^[[:space:]]*(set[rs]?[[:space:]]+)?(sv_licenseKey|rcon_password|steam_webApiKey|mysql_connection_string|SCREENSHOT_BASIC_TOKEN|NPWD_AUDIO_TOKEN)[[:space:]]'; then
+            echo "::error::Geheimnis in einer committeten cfg-Datei (siehe Treffer oben). Nur in secrets.cfg eintragen."
+            exit 1
+          fi
+          echo "Keine Geheimnisse gefunden."
+
+      - name: LF-Zeilenenden in server-data (cfg, txt, example)
+        shell: bash
+        run: |
+          set -euo pipefail
+          rc=0
+          while IFS= read -r -d '' f; do
+            if grep -q $'\r' "$f"; then
+              echo "::error file=$f::Datei enthaelt CRLF-Zeilenenden (erwartet: LF)"
+              rc=1
+            fi
+          done < <(git ls-files -z 'server-data/*.cfg' 'server-data/*.txt' 'server-data/*.example')
+          exit "$rc"

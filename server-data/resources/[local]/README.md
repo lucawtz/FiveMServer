@@ -51,8 +51,14 @@ Ressource ist immer der Name ihres Ordners, nicht der Pfad.
 
 ## Tipps
 
-- Nutzt dein Script eine Datenbank, trage `dependency 'oxmysql'` in die
-  `fxmanifest.lua` ein und stelle sicher, dass `ensure oxmysql` vor deinem Script steht.
+- Nutzt dein Script die Datenbank, trage `dependency 'oxmysql'` in die
+  `fxmanifest.lua` ein (oxmysql startet über `ensure [ox]` vor `[local]`). Eigene
+  SQL-Dateien bekommen eine Zeile am Ende von `server-data/database.txt`, damit
+  `setup-database` sie importiert. `rerun` nur für Dateien anhängen, die gefahrlos
+  mehrfach laufen können (siehe `docs/datenbank.md`).
+- Mit Qbox (qbx_spawn aktiv) kommt `playerSpawned` in keinem Spawn-Ablauf, weder bei
+  neuen Charakteren noch bei der Spawn-Auswahl. `hello-world/client.lua` zeigt das robuste
+  Muster: mehrere Signale abhören und die Aktion nur einmal ausführen.
 - Nutzt du `ox_lib`, gehört `shared_script '@ox_lib/init.lua'` in die Manifest-Datei.
 - Konfigurierbare Werte gehören in eine `config.lua` (als `shared_script`) oder in
   Convars (`GetConvar('name', 'standard')`), nicht fest in den Code.

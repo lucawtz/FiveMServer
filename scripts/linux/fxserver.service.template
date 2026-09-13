@@ -19,6 +19,8 @@
 Description=FiveM FXServer (txAdmin)
 After=network-online.target mariadb.service
 Wants=network-online.target
+# Startet MariaDB mit, falls vorhanden. Fehlt die Unit (Datenbank auf anderem Server), ist das harmlos.
+Wants=mariadb.service
 
 [Service]
 Type=simple

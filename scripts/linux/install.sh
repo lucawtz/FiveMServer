@@ -4,7 +4,7 @@
 #
 # Voraussetzung: Das Repository ist bereits geklont (z. B. nach /opt/fivem) und du bist root.
 #
-# Aufruf: sudo bash scripts/linux/install.sh [--user fivem] [--channel recommended] [--with-mariadb]
+# Aufruf: sudo bash scripts/linux/install.sh [--user fivem] [--channel recommended] [--no-mariadb]
 #                                            [--enable-firewall] [--txadmin-public] [--no-firewall]
 #
 # Schritte:
@@ -12,15 +12,20 @@
 #   2. Service-User anlegen und Repository ihm uebergeben
 #   3. FXServer-Artifacts laden, Basis- und Manifest-Ressourcen installieren (als Service-User)
 #   4. server-data/secrets.cfg aus der Vorlage mit zufaelligem rcon_password anlegen
-#   5. Optional MariaDB samt Datenbank "fivem" einrichten (--with-mariadb)
-#   6. systemd-Unit fxserver.service anlegen und aktivieren (nicht starten: Key fehlt noch).
+#   5. MariaDB-Server installieren, starten und Version pruefen (mindestens 10.9, Qbox).
+#      Mit --no-mariadb nur den Client (fuer eine Datenbank auf einem anderen Server)
+#   6. Datenbank und User anlegen (setup-database.sh --create, schreibt mysql_connection_string)
+#      und die SQL-Dateien aus server-data/database.txt importieren (setup-database.sh --import)
+#   7. systemd-Unit fxserver.service anlegen und aktivieren (nicht starten: Key fehlt noch).
 #      txAdmin lauscht auf 0.0.0.0:40120, der Port bleibt per Firewall zu (SSH-Tunnel nutzen)
-#   7. sudoers-Regel, damit der Service-User fxserver steuern darf (start|stop|restart; deploy.sh, CI)
-#   8. ufw-Regeln (30120/tcp+udp), wenn ufw aktiv ist. Ist ufw installiert, aber aus
+#   8. sudoers-Regel, damit der Service-User fxserver steuern darf (start|stop|restart; deploy.sh, CI)
+#   9. ufw-Regeln (30120/tcp+udp), wenn ufw aktiv ist. Ist ufw installiert, aber aus
 #      (Ubuntu-Standard), wird nur laut gewarnt (40120 haengt dann offen im Netz) und nichts
 #      eingeschaltet. Mit --enable-firewall werden die erkannten SSH-Ports und 30120 freigegeben
 #      und ufw eingeschaltet
 #
+# Schlaegt der Datenbank-Teil fehl (Schritte 5 und 6), laufen die Schritte 7 bis 9 trotzdem,
+# das Skript endet dann mit Exit-Code 1.
 # Das Skript ist idempotent und kann gefahrlos erneut ausgefuehrt werden.
 
 set -euo pipefail
@@ -37,7 +42,9 @@ Verwendung: sudo bash $(basename "$0") [OPTIONEN]
 Optionen:
   --user <name>      Service-User (Standard: fivem), wird bei Bedarf angelegt
   --channel <name>   Artifact-Channel: recommended (Standard), latest, optional
-  --with-mariadb     MariaDB installieren, DB "fivem" + User "fivem"@"localhost" anlegen
+  --no-mariadb       Keinen MariaDB-Server installieren und keine lokale DB anlegen (Datenbank
+                     auf einem anderen Server). Nur der Client wird bei Bedarf installiert
+  --with-mariadb     Veraltet und ohne Wirkung: MariaDB ist jetzt Standard
   --enable-firewall  Ein installiertes, aber inaktives ufw einschalten (vorher SSH-Port(s) und
                      30120/tcp+udp freigeben). Ohne diese Option wird nur gewarnt
   --txadmin-public   40120/tcp in ufw oeffnen, txAdmin damit oeffentlich (nicht empfohlen)
@@ -48,7 +55,8 @@ USAGE
 
 USER_NAME="fivem"
 CHANNEL="recommended"
-WITH_MARIADB=0
+NO_MARIADB=0
+WITH_MARIADB_FLAG=0
 TXADMIN_PUBLIC=0
 NO_FIREWALL=0
 ENABLE_FIREWALL=0
@@ -63,7 +71,8 @@ while [ $# -gt 0 ]; do
             [ $# -ge 2 ] || die "--channel braucht einen Wert."
             CHANNEL="$2"; shift 2 ;;
         --channel=*) CHANNEL="${1#--channel=}"; shift ;;
-        --with-mariadb) WITH_MARIADB=1; shift ;;
+        --no-mariadb) NO_MARIADB=1; shift ;;
+        --with-mariadb) WITH_MARIADB_FLAG=1; shift ;;
         --txadmin-public) TXADMIN_PUBLIC=1; shift ;;
         --enable-firewall) ENABLE_FIREWALL=1; shift ;;
         --no-firewall) NO_FIREWALL=1; shift ;;
@@ -76,6 +85,12 @@ done
 
 require_root
 validate_channel "$CHANNEL"
+if [ "$WITH_MARIADB_FLAG" = "1" ]; then
+    log_info "MariaDB ist jetzt Standard, --with-mariadb ist nicht mehr noetig."
+    if [ "$NO_MARIADB" = "1" ]; then
+        die "--with-mariadb und --no-mariadb widersprechen sich."
+    fi
+fi
 case "$USER_NAME" in
     ""|*[!a-z0-9_-]*) die "Ungueltiger User-Name '$USER_NAME' (erlaubt: a-z 0-9 _ -)." ;;
 esac
@@ -96,9 +111,29 @@ SECRETS_EXAMPLE="$SERVER_DATA/secrets.cfg.example"
 UNIT_TEMPLATE="$SCRIPT_DIR/fxserver.service.template"
 UNIT_FILE="/etc/systemd/system/fxserver.service"
 SUDOERS_FILE="/etc/sudoers.d/fivem-deploy"
-MARIADB_PASSWORD=""
+DB_FAILED=0
+DB_STATE=""
 SUMMARY=""
 NEXT_EXTRA=""
+
+print_mariadb_upgrade_help() {
+    # print_mariadb_upgrade_help [backup]: Anleitung fuer MariaDB aus dem offiziellen
+    # Repository. Mit "backup" steht zuerst die Sicherung (Server hat schon Daten).
+    printf '\nMariaDB aus dem offiziellen MariaDB-Repository installieren (Beispiel 12.3 LTS):\n' >&2
+    if [ "${1:-}" = "backup" ]; then
+        printf '  Backup: sudo mariadb-dump --all-databases > /root/mariadb-vor-upgrade.sql\n' >&2
+    fi
+    cat >&2 <<'UPGRADE'
+  curl -LsSO https://r.mariadb.com/downloads/mariadb_repo_setup
+  Pruefsumme aus https://mariadb.com/docs/server/server-management/install-and-upgrade-mariadb/mariadb-package-repository-setup-and-usage (Abschnitt "mariadb_repo_setup Versions") einsetzen:
+    echo "<pruefsumme> mariadb_repo_setup" | sha256sum -c -
+  sudo bash mariadb_repo_setup --mariadb-server-version="mariadb-12.3"
+  sudo apt-get update && sudo apt-get install -y mariadb-server mariadb-client
+  danach install.sh erneut ausfuehren
+Alternative Anleitung: https://mariadb.org/download/?t=repo-config
+
+UPGRADE
+}
 
 note() { SUMMARY="${SUMMARY}  - $*
 "; }
@@ -113,23 +148,7 @@ run_as_user() {
     fi
 }
 
-# Zeile in einer cfg ersetzen oder anhaengen: set_cfg_line <datei> <regex-der-alten-zeile> <neue-zeile>
-set_cfg_line() {
-    local file="$1" pattern="$2" newline="$3" tmp
-    tmp="${file}.tmp.$$"
-    if grep -Eq "$pattern" "$file"; then
-        awk -v pat="$pattern" -v repl="$newline" 'BEGIN{done=0} { if (!done && $0 ~ pat) { print repl; done=1 } else print }' "$file" > "$tmp"
-        # Besitzer und Rechte der Originaldatei uebernehmen, sonst wuerde mv eine
-        # root-eigene 0644-Datei an die Stelle der 0600-Datei des Service-Users setzen.
-        chown --reference="$file" "$tmp"
-        chmod --reference="$file" "$tmp"
-        mv "$tmp" "$file"
-    else
-        printf '\n%s\n' "$newline" >> "$file"
-    fi
-}
-
-log_step "1/8 Systempakete"
+log_step "1/9 Systempakete"
 export DEBIAN_FRONTEND=noninteractive
 if command -v apt-get >/dev/null 2>&1; then
     apt-get update -qq
@@ -140,7 +159,7 @@ else
 fi
 note "Systempakete geprueft"
 
-log_step "2/8 Service-User '${USER_NAME}' und Rechte"
+log_step "2/9 Service-User '${USER_NAME}' und Rechte"
 if id -u "$USER_NAME" >/dev/null 2>&1; then
     log_info "User '${USER_NAME}' existiert bereits."
 else
@@ -173,21 +192,22 @@ if ! run_as_user test -r "$SERVER_DATA/server.cfg"; then
 fi
 note "Service-User: ${USER_NAME} (Home: ${USER_HOME})"
 
-log_step "3/8 Artifacts und Ressourcen (als ${USER_NAME})"
+log_step "3/9 Artifacts und Ressourcen (als ${USER_NAME})"
 run_as_user bash "$SCRIPT_DIR/update-artifacts.sh" --channel "$CHANNEL" --if-missing
 if ! run_as_user bash "$SCRIPT_DIR/install-resources.sh"; then
     log_warn "Nicht alle Ressourcen konnten installiert werden. Spaeter erneut: scripts/linux/install-resources.sh"
 fi
 note "Artifacts: $(sed -n 's/^version=//p' "$ROOT/artifacts/VERSION.txt" 2>/dev/null | head -n 1 || echo '?') (${CHANNEL})"
 
-log_step "4/8 secrets.cfg"
+log_step "4/9 secrets.cfg"
 if [ -f "$SECRETS" ]; then
     log_info "server-data/secrets.cfg existiert bereits, bleibt unveraendert."
 else
     [ -f "$SECRETS_EXAMPLE" ] || die "Vorlage fehlt: $SECRETS_EXAMPLE"
     cp "$SECRETS_EXAMPLE" "$SECRETS"
     RCON_PW="$(random_hex)"
-    set_cfg_line "$SECRETS" '^[[:space:]]*#?[[:space:]]*(set[[:space:]]+)?rcon_password' "set rcon_password \"${RCON_PW}\""
+    cfg_set_line "$SECRETS" '^[[:space:]]*#?[[:space:]]*(set[[:space:]]+)?rcon_password([[:space:]]|$)' "set rcon_password \"${RCON_PW}\"" \
+        || die "rcon_password konnte nicht in secrets.cfg geschrieben werden."
     log_ok "secrets.cfg aus Vorlage erstellt, rcon_password zufaellig gesetzt."
 fi
 chown "$USER_NAME:" "$SECRETS"
@@ -195,47 +215,128 @@ chmod 600 "$SECRETS"
 check_license_key || true
 note "secrets.cfg: ${SECRETS}"
 
-log_step "5/8 MariaDB"
-if [ "$WITH_MARIADB" = "1" ]; then
-    need_cmd apt-get "MariaDB-Installation braucht apt."
+log_step "5/9 MariaDB"
+export DEBIAN_FRONTEND=noninteractive
+if [ "$NO_MARIADB" = "1" ]; then
+    log_info "Kein MariaDB-Server (--no-mariadb)."
+    if ! command -v mariadb >/dev/null 2>&1 && ! command -v mysql >/dev/null 2>&1; then
+        if command -v apt-get >/dev/null 2>&1 && apt-get install -y -qq mariadb-client >/dev/null; then
+            log_ok "mariadb-client installiert (fuer den SQL-Import gegen eine entfernte Datenbank)."
+        else
+            log_warn "mariadb-client konnte nicht installiert werden. Der SQL-Import braucht ihn: apt install mariadb-client"
+        fi
+    fi
+    note "MariaDB: kein lokaler Server (--no-mariadb)"
+elif ! command -v apt-get >/dev/null 2>&1; then
+    log_error "apt-get nicht gefunden, MariaDB kann nicht installiert werden. Installiere MariaDB >= 10.9 selbst und fuehre install.sh erneut aus (oder --no-mariadb)."
+    DB_FAILED=1
+else
     # Auf das Server-Paket pruefen, nicht auf den Client: ein reiner mariadb-client
     # (z. B. fuer eine fruehere Remote-DB) hat keinen Dienst zum Starten.
-    if ! dpkg -s mariadb-server >/dev/null 2>&1; then
-        apt-get install -y -qq mariadb-server >/dev/null
-        log_ok "mariadb-server installiert."
+    # Nur Status "installed" zaehlt: 'dpkg -s' meldet auch entfernte Pakete mit
+    # uebrig gebliebenen Konfigurationsdateien (config-files) als vorhanden.
+    # shellcheck disable=SC2016
+    mariadb_state="$(dpkg-query -W -f='${db:Status-Status}' mariadb-server 2>/dev/null || true)"
+    MARIADB_UPGRADE_HELP=""
+    if [ "$mariadb_state" != "installed" ]; then
+        # Erst die apt-Kandidatenversion pruefen: ist sie zu alt (z. B. 10.6 unter
+        # Ubuntu 22.04), wird nichts installiert, sonst waere spaeter ein Upgrade
+        # ueber mehrere Hauptversionen noetig.
+        mariadb_cand="$(LC_ALL=C apt-cache policy mariadb-server 2>/dev/null | awk '$1 == "Candidate:" { print $2; exit }')"
+        mariadb_cand="${mariadb_cand#*:}"
+        mariadb_cand="${mariadb_cand%%[-+~]*}"
+        case "$mariadb_cand" in [0-9]*.[0-9]*) ;; *) mariadb_cand="" ;; esac
+        mariadb_cand_rc=0
+        if [ -n "$mariadb_cand" ]; then
+            mariadb_version_ok "${mariadb_cand}-MariaDB" || mariadb_cand_rc=$?
+        fi
+        # apt wuerde einen installierten MySQL-Server beim Installieren von MariaDB
+        # still entfernen (Paketkonflikt). Ausgabe erst sammeln: dpkg-query endet mit
+        # Exit 1, sobald ein Muster nichts findet.
+        # shellcheck disable=SC2016
+        mysql_pkgs="$(dpkg-query -W -f='${binary:Package} ${db:Status-Status}\n' 'mysql-server*' 'percona-server-server*' 2>/dev/null || true)"
+        if printf '%s\n' "$mysql_pkgs" | grep -q ' installed$'; then
+            log_error "Ein MySQL-Server ist installiert ($(printf '%s\n' "$mysql_pkgs" | awk '$2 == "installed" { printf "%s%s", s, $1; s = " " }')). apt wuerde ihn beim Installieren von MariaDB entfernen. MySQL sichern und entfernen oder install.sh --no-mariadb verwenden (Qbox braucht MariaDB >= 10.9)."
+            DB_FAILED=1
+        elif [ "$mariadb_cand_rc" = "1" ]; then
+            log_error "Die apt-Quellen bieten nur MariaDB ${mariadb_cand} an, Qbox braucht mindestens 10.9. Es wird nichts installiert."
+            FX_DB_CHECK="tooold"
+            MARIADB_UPGRADE_HELP="neu"
+            DB_FAILED=1
+        elif apt-get install -y -qq mariadb-server mariadb-client >/dev/null; then
+            log_ok "mariadb-server und mariadb-client installiert."
+        else
+            log_error "apt-get install mariadb-server mariadb-client ist fehlgeschlagen."
+            DB_FAILED=1
+        fi
     else
         log_info "mariadb-server ist bereits installiert."
     fi
-    systemctl enable --now mariadb >/dev/null 2>&1 || systemctl enable --now mysql >/dev/null 2>&1 || die "MariaDB-Dienst konnte nicht gestartet werden."
-    DB_CLIENT="mariadb"
-    command -v mariadb >/dev/null 2>&1 || DB_CLIENT="mysql"
-    DB_USER_COUNT="$("$DB_CLIENT" -N -B -e "SELECT COUNT(*) FROM mysql.user WHERE user='fivem' AND host='localhost';")" || die "Keine Verbindung zu MariaDB als root (unix_socket). Laeuft der Dienst?"
-    if [ "${DB_USER_COUNT:-0}" -gt 0 ]; then
-        log_info "DB-User 'fivem'@'localhost' existiert bereits. Passwort bleibt unveraendert."
-        "$DB_CLIENT" -e "CREATE DATABASE IF NOT EXISTS fivem CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-        note "MariaDB: Datenbank fivem vorhanden, User fivem unveraendert"
-    else
-        MARIADB_PASSWORD="$(random_hex)"
-        # SQL per stdin, damit das Passwort nicht als Prozessargument (ps) sichtbar ist
-        "$DB_CLIENT" <<SQL
-CREATE DATABASE IF NOT EXISTS fivem CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER IF NOT EXISTS 'fivem'@'localhost' IDENTIFIED BY '${MARIADB_PASSWORD}';
-GRANT ALL PRIVILEGES ON fivem.* TO 'fivem'@'localhost';
-FLUSH PRIVILEGES;
-SQL
-        set_cfg_line "$SECRETS" '^[[:space:]]*#?[[:space:]]*(set[[:space:]]+)?mysql_connection_string' \
-            "set mysql_connection_string \"mysql://fivem:${MARIADB_PASSWORD}@localhost/fivem?charset=utf8mb4\""
-        log_ok "Datenbank 'fivem' und User 'fivem'@'localhost' angelegt, Verbindungs-String in secrets.cfg eingetragen."
-        note "MariaDB: DB fivem, User fivem angelegt (Passwort steht in secrets.cfg und wird unten einmal ausgegeben)"
+    if [ "$DB_FAILED" = "0" ]; then
+        if ! systemctl enable --now mariadb >/dev/null 2>&1 && ! systemctl enable --now mysql >/dev/null 2>&1; then
+            log_error "MariaDB-Dienst konnte nicht gestartet werden (systemctl status mariadb)."
+            DB_FAILED=1
+        fi
     fi
-    # secrets.cfg enthaelt jetzt auch das DB-Passwort: Besitzer und 0600 sicherheitshalber erneut setzen
-    chown "$USER_NAME:" "$SECRETS"
-    chmod 600 "$SECRETS"
-else
-    log_info "Uebersprungen (--with-mariadb nicht gesetzt)."
+    if [ "$DB_FAILED" = "0" ]; then
+        FX_DB_MODE="root"
+        DB_RC=0
+        if db_find_client; then
+            db_work_init
+            db_check_server "root ueber unix_socket" || DB_RC=$?
+        else
+            DB_RC=1
+        fi
+        if [ "$DB_RC" -ne 0 ]; then
+            DB_FAILED=1
+            [ "$FX_DB_CHECK" != "tooold" ] || MARIADB_UPGRADE_HELP="backup"
+        else
+            note "MariaDB: ${FX_DB_VERSION}"
+        fi
+    fi
+    case "$MARIADB_UPGRADE_HELP" in
+        backup) print_mariadb_upgrade_help backup ;;
+        neu) print_mariadb_upgrade_help ;;
+    esac
 fi
 
-log_step "6/8 systemd-Unit"
+log_step "6/9 Datenbank und SQL-Import"
+if [ "$NO_MARIADB" = "0" ] && [ "$DB_FAILED" = "0" ]; then
+    if ! bash "$SCRIPT_DIR/setup-database.sh" --create; then
+        log_error "setup-database.sh --create ist fehlgeschlagen (siehe oben)."
+        DB_FAILED=1
+    fi
+fi
+if [ "$DB_FAILED" = "0" ]; then
+    CS_RC=0
+    secrets_get_connection_string "$SECRETS" >/dev/null || CS_RC=$?
+    if [ "$CS_RC" = "0" ]; then
+        if run_as_user bash "$SCRIPT_DIR/setup-database.sh" --import; then
+            DB_STATE="eingerichtet"
+        else
+            log_error "setup-database.sh --import ist fehlgeschlagen (siehe oben)."
+            DB_FAILED=1
+        fi
+    elif [ "$NO_MARIADB" = "1" ]; then
+        log_warn "Qbox braucht eine Datenbank, in secrets.cfg steht aber noch kein mysql_connection_string."
+        log_warn "Naechste Schritte: String in ${SECRETS} eintragen, dann: sudo -u ${USER_NAME} bash ${SCRIPT_DIR}/setup-database.sh --import"
+        DB_STATE="uebersprungen (--no-mariadb)"
+    else
+        log_error "Nach --create steht kein aktiver mysql_connection_string in secrets.cfg."
+        DB_FAILED=1
+    fi
+fi
+if [ "$DB_FAILED" = "1" ]; then
+    DB_STATE="FEHLGESCHLAGEN (siehe oben)"
+fi
+# secrets.cfg kann jetzt das DB-Passwort enthalten: Besitzer und 0600 sicherheitshalber erneut setzen
+if [ -f "$SECRETS" ]; then
+    chown "$USER_NAME:" "$SECRETS"
+    chmod 600 "$SECRETS"
+fi
+note "Datenbank: ${DB_STATE}"
+
+log_step "7/9 systemd-Unit"
 [ -f "$UNIT_TEMPLATE" ] || die "Vorlage fehlt: $UNIT_TEMPLATE"
 sed -e "s|__ROOT__|${ROOT}|g" -e "s|__USER__|${USER_NAME}|g" "$UNIT_TEMPLATE" > "$UNIT_FILE"
 chmod 644 "$UNIT_FILE"
@@ -248,7 +349,7 @@ else
 fi
 note "systemd: ${UNIT_FILE} (txAdmin lauscht auf 0.0.0.0:40120, nur per Firewall/SSH-Tunnel erreichbar)"
 
-log_step "7/8 sudoers fuer deploy.sh"
+log_step "8/9 sudoers fuer deploy.sh"
 need_cmd visudo "Unter Ubuntu/Debian: apt install sudo"
 SYSTEMCTL_PATHS=""
 for p in /usr/bin/systemctl /bin/systemctl; do
@@ -276,7 +377,7 @@ else
 fi
 note "sudoers: ${SUDOERS_FILE}"
 
-log_step "8/8 Firewall (ufw)"
+log_step "9/9 Firewall (ufw)"
 if [ "$NO_FIREWALL" = "1" ]; then
     log_info "Uebersprungen (--no-firewall)."
 elif ! command -v ufw >/dev/null 2>&1; then
@@ -308,8 +409,8 @@ elif ! LC_ALL=C ufw status 2>/dev/null | grep -q '^Status: active'; then
         if [ "$USER_NAME" != "fivem" ]; then
             RERUN_CMD="${RERUN_CMD} --user ${USER_NAME}"
         fi
-        if [ "$WITH_MARIADB" = "1" ]; then
-            RERUN_CMD="${RERUN_CMD} --with-mariadb"
+        if [ "$NO_MARIADB" = "1" ]; then
+            RERUN_CMD="${RERUN_CMD} --no-mariadb"
         fi
         if [ "$TXADMIN_PUBLIC" = "1" ]; then
             RERUN_CMD="${RERUN_CMD} --txadmin-public"
@@ -321,7 +422,7 @@ elif ! LC_ALL=C ufw status 2>/dev/null | grep -q '^Status: active'; then
         log_warn "Oder von Hand (erst SSH freigeben, sonst sperrst du dich aus):"
         log_warn "    ${MANUAL_UFW}"
         note "ufw: installiert, aber AUS und nicht eingeschaltet. txAdmin 40120 ist offen! (--enable-firewall)"
-        NEXT_EXTRA="${NEXT_EXTRA}  6. Firewall einschalten, damit txAdmin (40120) nicht offen im Netz haengt:
+        NEXT_EXTRA="${NEXT_EXTRA}  8. Firewall einschalten, damit txAdmin (40120) nicht offen im Netz haengt:
        ${RERUN_CMD}
      oder von Hand: ${MANUAL_UFW}
 "
@@ -373,9 +474,16 @@ Naechste Schritte:
        ssh -L 40120:127.0.0.1:40120 root@<server-ip>   (jeder SSH-faehige User geht)
        dann http://localhost:40120 oeffnen, PIN eingeben, Cfx.re-Account verknuepfen.
      In txAdmin "Existing Server Data" waehlen: Ordner ${SERVER_DATA}, CFG server.cfg
-  5. Spaetere Updates: bash ${SCRIPT_DIR}/deploy.sh
+  5. Nur Freunde zulassen: License Allowlist in txAdmin, siehe docs/linux-server.md,
+     Abschnitt "Nur Freunde zulassen (License Allowlist)"
+  6. Status der SQL-Dateien pruefen:
+       sudo -u ${USER_NAME} bash ${SCRIPT_DIR}/setup-database.sh --dry-run
+  7. Spaetere Updates (inkl. SQL-Import): bash ${SCRIPT_DIR}/deploy.sh
 NEXT
 printf '%s' "$NEXT_EXTRA" >&2
-if [ -n "$MARIADB_PASSWORD" ]; then
-    printf '\nMariaDB-Passwort fuer fivem@localhost (steht auch in secrets.cfg): %s\n' "$MARIADB_PASSWORD" >&2
+printf '\nDatenbank: %s\n' "$DB_STATE" >&2
+if [ "$DB_FAILED" = "1" ]; then
+    log_error "Die Einrichtung der Datenbank ist fehlgeschlagen (siehe oben). Nach dem Beheben install.sh erneut ausfuehren."
+    exit 1
 fi
+exit 0

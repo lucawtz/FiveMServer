@@ -22,7 +22,9 @@ ist damit auch auf Apple Silicon nicht mehr nötig), auf Apple Silicon und ARM-V
   `set rcon_password`, `set steam_webApiKey`, `set mysql_connection_string` aus `RCON_PASSWORD`,
   `STEAM_WEBAPI_KEY`, `MYSQL_CONNECTION_STRING`. Kein `set onesync on`: OneSync steht in keiner cfg-Datei,
   txAdmin verwaltet es selbst (Settings > FXServer, Standard "on") und würde die Zeile sonst auskommentieren.
-  Eine vorhandene `secrets.cfg` bleibt unverändert (Warnung bei `changeme`). Dann `cd /server-data`,
+  Eine vorhandene `secrets.cfg` bleibt unverändert (Warnung bei `changeme`). Außerdem warnt es, wenn in
+  `secrets.cfg` kein aktives `set mysql_connection_string` steht (`Qbox startet ohne Datenbank nicht.`) und wenn
+  `[vendor]` leer ist (`auf dem Host scripts/linux/install-resources.sh ausfuehren.`), bricht deshalb aber nicht ab. Dann `cd /server-data`,
   `export TXHOST_DATA_PATH=/txData TXHOST_TXA_PORT=40120` und `exec /opt/fxserver/run.sh "$@"`. Zusätzliche
   Container-Argumente werden angehängt.
 - `docker/docker-compose.yml`: Services `fxserver` (`platform: linux/amd64`, Build aus `..` mit
@@ -31,10 +33,13 @@ ist damit auch auf Apple Silicon nicht mehr nötig), auf Apple Silicon und ARM-V
   und `txdata:/txData`, `environment:` nur mit `FIVEM_LICENSE_KEY`, `RCON_PASSWORD`, `STEAM_WEBAPI_KEY` und
   `MYSQL_CONNECTION_STRING` aus der `.env` (kein `env_file`, das MariaDB-Root-Passwort bleibt draußen),
   `depends_on db: service_healthy`, `restart unless-stopped`, `stop_grace_period 30s`) und `db`
-  (`mariadb:11`, kein `env_file`, sondern ein `environment:`-Block mit `MARIADB_ROOT_PASSWORD`,
-  `MARIADB_DATABASE`, `MARIADB_USER`, `MARIADB_PASSWORD` aus den `${MYSQL_*}`-Variablen der `.env`, damit
+  (`mariadb:12.3`, kein `env_file`, sondern ein `environment:`-Block mit `MARIADB_ROOT_PASSWORD`,
+  `MARIADB_DATABASE`, `MARIADB_USER`, `MARIADB_PASSWORD` aus den `${MYSQL_*}`-Variablen der `.env` plus
+  `MARIADB_AUTO_UPGRADE: "1"`, damit
   Lizenz-, RCON- und Steam-Key nicht im DB-Container landen; Volume `dbdata:/var/lib/mysql`, Healthcheck
-  `healthcheck.sh --connect --innodb_initialized`, Port 3306 nicht veröffentlicht, Beispielzeile
+  `healthcheck.sh --connect --innodb_initialized` mit `start_period: 120s`, `interval: 10s`, `timeout: 5s` und
+  `retries: 3` (Fehlschläge zählen erst nach 120 s, ein erfolgreicher Check meldet sofort `healthy`), Port 3306
+  nicht veröffentlicht, Beispielzeile
   `127.0.0.1:3306:3306` auskommentiert). Named Volumes `txdata`, `dbdata`.
 - `.env.example`: Vorlage für `.env` im Repo-Root.
 
@@ -44,15 +49,22 @@ Auf dem Docker-Host, aus dem Repo-Root:
 
 ```bash
 cp .env.example .env
-nano .env                                  # FIVEM_LICENSE_KEY, Passwörter setzen
-scripts/linux/install-resources.sh         # [cfx-default] und resources.txt auf dem Host installieren
+nano .env                                  # FIVEM_LICENSE_KEY, Passwörter setzen (nur A-Z a-z 0-9)
+scripts/linux/install-resources.sh         # [cfx-default] und resources.txt (Qbox) auf dem Host installieren
 sudo chown -R 1000:1000 server-data        # Container läuft als uid 1000
+docker compose --env-file .env -f docker/docker-compose.yml up -d --wait db
+bash scripts/linux/setup-database.sh --docker   # SQL-Dateien aus database.txt in den db-Container importieren
 docker compose --env-file .env -f docker/docker-compose.yml up -d --build
 docker compose --env-file .env -f docker/docker-compose.yml logs -f fxserver   # txAdmin-PIN
 ```
 
-`install-resources.sh` braucht auf dem Host `git` und `unzip`. Das Image enthält die Skripte nicht; der
-Entrypoint warnt nur, wenn `[cfx-default]` leer ist.
+Die Reihenfolge steht auch im Kopf von `docker/docker-compose.yml`. `fxserver` startet erst, wenn `db` gesund ist,
+die Qbox-Tabellen müssen aber vorher importiert sein, deshalb kommt `setup-database.sh --docker` zwischen die
+beiden `up`-Befehle.
+
+`install-resources.sh` braucht auf dem Host `git` und `unzip`, `setup-database.sh --docker` nur Docker mit dem
+Compose-Plugin (der MariaDB-Client läuft im `db`-Container). Das Image enthält die Skripte nicht; der
+Entrypoint warnt nur, wenn `[cfx-default]` oder `[vendor]` leer ist.
 
 `--env-file .env` ist nötig: die Compose-Datei nutzt kein `env_file`, sondern `${...}`-Interpolation in den
 `environment:`-Blöcken beider Services, und die liest Compose nur aus einer `.env` neben der Compose-Datei
@@ -68,8 +80,8 @@ oder aus `--env-file`. Aus `docker/` heraus entsprechend
 | `STEAM_WEBAPI_KEY`        | Optional, für `steam:`-Identifier.                                                          |
 | `MYSQL_ROOT_PASSWORD`     | root-Passwort des `db`-Containers. Compose reicht die `MYSQL_*`-Werte als `MARIADB_*` an `db` weiter. |
 | `MYSQL_DATABASE`          | Datenbankname, Standard `fivem`.                                                            |
-| `MYSQL_USER` / `MYSQL_PASSWORD` | Anwendungs-User, Standard `fivem`.                                                    |
-| `MYSQL_CONNECTION_STRING` | `mysql://fivem:<MYSQL_PASSWORD>@db/fivem?charset=utf8mb4`; Host ist der Service-Name `db`.  |
+| `MYSQL_USER` / `MYSQL_PASSWORD` | Anwendungs-User, Standard `fivem`. Passwort nur aus `A-Z a-z 0-9`. Wirken nur beim allerersten Start des `dbdata`-Volumes. |
+| `MYSQL_CONNECTION_STRING` | `mysql://fivem:<MYSQL_PASSWORD>@db:3306/fivem?charset=utf8mb4`; Host ist der Service-Name `db`. Das Passwort muss genau `MYSQL_PASSWORD` sein; oxmysql dekodiert keine `%XX`-Sequenzen. |
 
 Wichtig: Der Container erzeugt `server-data/secrets.cfg` nur, wenn die Datei fehlt. Änderst du später
 Werte in `.env`, musst du `secrets.cfg` von Hand anpassen oder löschen (dann wird sie neu erzeugt).
@@ -107,20 +119,56 @@ docker compose --env-file .env -f docker/docker-compose.yml run --rm --service-p
 
 ## Datenbank
 
-Der `db`-Service legt beim ersten Start Datenbank und User aus `.env` an. SQL importieren:
+Der `db`-Service (`mariadb:12.3`) legt beim ersten Start Datenbank und User aus `.env` an. Die Tabellen von Qbox
+importiert `setup-database.sh` vom Host aus in den laufenden Container:
 
 ```bash
-docker compose --env-file .env -f docker/docker-compose.yml exec -T db mariadb -u fivem -p"$(grep '^MYSQL_PASSWORD=' .env | cut -d= -f2-)" fivem < "server-data/resources/[vendor]/[esx]/[SQL]/legacy.sql"
+docker compose --env-file .env -f docker/docker-compose.yml up -d --wait db
+bash scripts/linux/setup-database.sh --docker              # ausstehende SQL-Dateien importieren
+bash scripts/linux/setup-database.sh --docker --dry-run    # nur den Stand anzeigen
 ```
+
+`--docker` prüft `docker compose version` und `.env` (sonst Exit 1) und ob der `db`-Container läuft (sonst Exit 2:
+`Der db-Container laeuft nicht. Starten: docker compose --env-file .env -f docker/docker-compose.yml up -d --wait db`).
+Dann wartet es bis zu 120 s auf den Healthcheck (`healthcheck.sh --connect --innodb_initialized`); beim ersten Start
+oder nach einem Upgrade antwortet vorübergehend ein Hilfsserver ohne den User. Der Client läuft im Container mit
+dessen `MARIADB_USER`/`MARIADB_PASSWORD`, das Passwort erscheint auf dem Host in keiner Kommandozeile.
+`--create` und `--secrets` gibt es mit `--docker` nicht.
+
+War die Datenbank schon mit dem txAdmin-Rezept eingerichtet:
+`bash scripts/linux/setup-database.sh --docker --mark-applied --only '[vendor]/.sources/qbox-recipe/qbox.sql' --only '[vendor]/[npwd]/npwd/import.sql'`,
+danach normal importieren ([datenbank.md](datenbank.md#datenbank-schon-per-txadmin-rezept-eingerichtet)).
 
 Mit einem grafischen Client: die auskommentierten `ports`-Zeilen beim `db`-Service einkommentieren
 (`127.0.0.1:3306:3306`) und lokal verbinden, auf einem VPS per SSH-Tunnel.
 
-Dump: `docker compose --env-file .env -f docker/docker-compose.yml exec db mariadb-dump -u root -p"<root-pw>" fivem | gzip > fivem.sql.gz`.
+Dump und Wiederherstellung (Root-Passwort aus der Container-Umgebung, nicht auf der Kommandozeile):
+
+```bash
+docker compose --env-file .env -f docker/docker-compose.yml exec -T db sh -c 'MYSQL_PWD="$MARIADB_ROOT_PASSWORD" exec mariadb-dump -uroot --single-transaction "$MARIADB_DATABASE"' > fivem.sql
+docker compose --env-file .env -f docker/docker-compose.yml exec -T db sh -c 'MYSQL_PWD="$MARIADB_ROOT_PASSWORD" exec mariadb -uroot "$MARIADB_DATABASE"' < fivem.sql
+```
+
+### Upgrade von mariadb:11
+
+Frühere Stände dieses Repos nutzten `mariadb:11`. Mit `MARIADB_AUTO_UPGRADE: "1"` aktualisiert der Container ein
+vorhandenes `dbdata`-Volume beim Start selbst. Vorher sichern:
+
+1. Mit dem alten Stand einen Dump ziehen (Befehl oben).
+2. Neuen Stand holen (`git pull`), dann `docker compose --env-file .env -f docker/docker-compose.yml up -d --wait db`.
+   Der erste Start nach dem Upgrade dauert länger. Fehlschläge des Healthchecks zählen erst nach 120 s
+   (`start_period`), `--wait` wartet also ein normales Upgrade ab. Meldet `up` trotzdem `unhealthy`, die Logs
+   lesen (Befehl in Schritt 3) und den Befehl wiederholen, sobald das Upgrade durch ist.
+3. `bash scripts/linux/setup-database.sh --docker`. Meldet es `db-Container ist nach 120 s nicht bereit`, die Logs
+   lesen (`docker compose --env-file .env -f docker/docker-compose.yml logs db`) und den Befehl wiederholen.
+4. `docker compose --env-file .env -f docker/docker-compose.yml up -d --build`.
+
+Zurück auf `mariadb:11` mit dem aktualisierten Volume ist nicht vorgesehen, dafür den Dump einspielen.
 
 ## Aktualisieren
 
-- Eigener Code und Ressourcen: `git pull`, `scripts/linux/install-resources.sh --update`, dann
+- Eigener Code und Ressourcen: `git pull`, `scripts/linux/install-resources.sh --update`,
+  `bash scripts/linux/setup-database.sh --docker` (neue SQL-Dateien), dann
   `docker compose --env-file .env -f docker/docker-compose.yml restart fxserver`.
 - Neue FXServer-Artifacts: das Image neu bauen. Der Download-Layer ist gecacht, deshalb `--no-cache`:
 

@@ -1,12 +1,19 @@
 -- hello-world / client.lua
--- Läuft beim Spieler. Begrüßt ihn einmalig nach dem ersten Spawn und
+-- Läuft beim Spieler. Begrüßt ihn einmalig, sobald er im Spiel ist, und
 -- trägt /hallo in die Befehlsvorschläge des Chats ein.
+--
+-- Die Ressource hängt von keinem Framework ab. Je nach Spawn-Ablauf kommt ein
+-- anderes Signal, deshalb hören wir auf mehrere und begrüßen nur einmal:
+--   1. 'playerSpawned' vom spawnmanager (ohne Framework; bei Qbox nur, wenn
+--      qbx_spawn nicht läuft).
+--   2. 'QBCore:Client:OnPlayerLoaded' von Qbox (qbx_core, qbx_spawn) nach der
+--      Charakterauswahl. Nur ein Eventname: ohne Qbox kommt es nie, es entsteht
+--      keine Abhängigkeit.
+--   3. Rückfall: zwei Minuten, nachdem der Spieler im Netzwerk aktiv ist.
 
 local greeted = false
 
--- 'playerSpawned' kommt vom spawnmanager (wird von basic-gamemode genutzt).
--- Nach jedem Respawn wird es erneut ausgelöst, wir begrüßen aber nur einmal.
-AddEventHandler('playerSpawned', function()
+local function greetOnce()
     if greeted then
         return
     end
@@ -17,6 +24,17 @@ AddEventHandler('playerSpawned', function()
         multiline = true,
         args = { 'Server', 'Willkommen! Tippe /hallo in den Chat, um die Beispiel-Ressource zu testen.' }
     })
+end
+
+AddEventHandler('playerSpawned', greetOnce)
+AddEventHandler('QBCore:Client:OnPlayerLoaded', greetOnce)
+
+CreateThread(function()
+    while not NetworkIsPlayerActive(PlayerId()) do
+        Wait(1000)
+    end
+    Wait(120000)
+    greetOnce()
 end)
 
 -- Beim Start dieser Ressource den Befehl im Chat als Vorschlag anzeigen.

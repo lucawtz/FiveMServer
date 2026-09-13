@@ -1,6 +1,8 @@
 # Deploy: verbindet sich per SSH mit dem Linux-Server und fuehrt dort
-#   cd <DEPLOY_PATH> && bash scripts/linux/deploy.sh [--update-artifacts --channel <kanal>]
-# aus (git pull --ff-only, install-resources.sh --update, optional Artifacts, systemctl restart fxserver).
+#   cd <DEPLOY_PATH> && bash scripts/linux/deploy.sh [--update-artifacts --channel <kanal>] [--no-sql]
+# aus (git pull --ff-only, install-resources.sh --update, setup-database.sh --import, optional Artifacts,
+# systemctl restart fxserver). Schlaegt der SQL-Import fehl, startet deploy.sh den Dienst nicht neu.
+# Eingabe skip_sql haengt --no-sql an (SQL-Import ueberspringen).
 #
 # Benoetigte Secrets (Settings -> Secrets and variables -> Actions):
 #   DEPLOY_HOST      IP oder Hostname des Servers
@@ -29,6 +31,10 @@ on:
           - latest
           - optional
         default: recommended
+      skip_sql:
+        description: 'SQL-Import ueberspringen (deploy.sh --no-sql)'
+        type: boolean
+        default: false
   # Automatisch bei jedem Push auf main deployen: die beiden folgenden Zeilen einkommentieren.
   # push:
   #   branches: [main]
@@ -95,11 +101,15 @@ jobs:
         env:
           UPDATE_ARTIFACTS: ${{ inputs.update_artifacts }}
           CHANNEL: ${{ inputs.channel }}
+          SKIP_SQL: ${{ inputs.skip_sql }}
         run: |
           set -euo pipefail
           args=""
           if [ "${UPDATE_ARTIFACTS:-false}" = "true" ]; then
             args="--update-artifacts --channel ${CHANNEL:-recommended}"
+          fi
+          if [ "${SKIP_SQL:-false}" = "true" ]; then
+            args="${args:+${args} }--no-sql"
           fi
           # ServerAliveInterval/CountMax: eine haengende Verbindung bricht nach ca. 3 Minuten ab,
           # statt bis zum 6-Stunden-Limit des Jobs zu laufen.

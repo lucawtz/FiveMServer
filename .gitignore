@@ -10,6 +10,9 @@
 /.env
 /.env.*
 !/.env.example
+# Zwischendateien beim Umschreiben von cfg-Dateien (z. B. secrets.cfg.tmp.1234),
+# bleiben nur nach einem Abbruch liegen und koennen Passwoerter enthalten
+/server-data/*.tmp.*
 
 # --- Server-Binaries und Werkzeuge (werden von den Skripten geladen) ---------
 /artifacts/

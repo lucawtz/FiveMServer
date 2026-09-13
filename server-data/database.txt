@@ -1,0 +1,59 @@
+# ============================================================================
+#  database.txt - SQL-Dateien fuer die Datenbank, in Import-Reihenfolge
+# ============================================================================
+#
+#  Gelesen von scripts/linux/setup-database.sh und scripts/windows/setup-database.ps1.
+#  Eine SQL-Datei pro Zeile, Pfad relativ zu server-data/resources/, immer mit '/'.
+#  Leerzeilen und Zeilen mit '#' am Anfang werden ignoriert.
+#  Erlaubt im Pfad: A-Z a-z 0-9 . _ - [ ] /  (keine Leerzeichen), Endung .sql,
+#  keine '.'- oder '..'-Segmente.
+#
+#  Optional nach dem Pfad, durch ein Leerzeichen getrennt: rerun
+#    Nur fuer Dateien, die gefahrlos mehrfach laufen koennen (nur
+#    CREATE TABLE IF NOT EXISTS, ADD COLUMN IF NOT EXISTS usw.). Aendert sich eine
+#    solche Datei (z. B. neue Spalte nach einem Qbox-Update), wird sie automatisch
+#    erneut ausgefuehrt.
+#
+#  Reihenfolge wie die query_database-Schritte im offiziellen Qbox-Rezept.
+#  Die Dateien kommen aus resources.txt, also zuerst die Ressourcen installieren.
+#
+#  So funktioniert der Import:
+#    - Jede Datei wird einmal importiert. Die Tabelle repo_sql_imports in der
+#      Datenbank merkt sich Pfad, sha256 und Zeitpunkt.
+#    - Neue Zeilen werden beim naechsten Lauf importiert (auch durch deploy.sh).
+#    - Aendert sich eine schon importierte Datei OHNE rerun, gibt es nur eine
+#      Warnung. Sie wird NICHT erneut ausgefuehrt.
+#    - Datenbank schon mit dem txAdmin-Rezept eingerichtet? Einmal
+#      --mark-applied bzw. -MarkApplied ausfuehren, siehe docs/datenbank.md.
+#
+#  Neue Zeilen nur ANHAENGEN. Vorhandene nicht umsortieren oder umbenennen:
+#  ein geaenderter Pfad gilt als neue Datei und wuerde erneut importiert.
+# ============================================================================
+
+# Aus dem Rezept-Repository: Kleidung, Tuerschloesser (mit 6 Beispieltueren),
+# Banking und Mails. Nicht wiederholbar (feste IDs beim Einfuegen).
+[vendor]/.sources/qbox-recipe/qbox.sql
+
+# Qbox-Kern: Spieler, Banns, Gruppen (enthaelt Spalten-Migrationen)
+[vendor]/[qbx]/qbx_core/qbx_core.sql rerun
+
+# Fahrzeuge der Spieler
+[vendor]/[qbx]/qbx_vehicles/vehicles.sql rerun
+
+# Gebrauchtwagenhandel
+[vendor]/[qbx]/qbx_vehiclesales/qbx_vehiclesales.sql rerun
+
+# Fahrzeughaendler (Finanzierung)
+[vendor]/[qbx]/qbx_vehicleshop/vehshop.sql rerun
+
+# Pflanzen
+[vendor]/[qbx]/qbx_weed/sql/qbx_weed.sql rerun
+
+# Rundstrecken-Rennen
+[vendor]/[qbx]/qbx_lapraces/qbx_lapraces.sql rerun
+
+# Dealer
+[vendor]/[qbx]/qbx_drugs/qbx_drugs.sql rerun
+
+# Handy (npwd), nicht wiederholbar: wird nur einmal ausgefuehrt
+[vendor]/[npwd]/npwd/import.sql

@@ -1,265 +1,166 @@
-# Frameworks: ESX Legacy, QBCore, Qbox
+# Framework: Qbox
 
-Dieses Repo ist framework-frei. Diese Seite beschreibt ehrlich, was nötig ist, um eines der drei großen
-Frameworks aufzusetzen. Die offiziellen Wege sind bei allen dreien txAdmin-Rezepte; eine dokumentierte
-"manuelle" Installation gibt es bei ESX und Qbox nicht. Die Schritte unten sind aus den offiziellen
-Rezepten (`recipe.yaml`) und den `server.cfg`-Vorlagen der Projekte abgeleitet (Stand September 2026).
+Auf diesem Server läuft **Qbox** mit MariaDB. Die Ressourcen sind eine Übersetzung des offiziellen
+txAdmin-Rezepts von Qbox (<https://github.com/Qbox-project/txAdminRecipe>, `qbox.yaml`, Commit `a4be9fc` vom
+09.07.2026) in die Manifeste dieses Repos: `server-data/resources.txt` (Ressourcen), `server-data/database.txt`
+(SQL-Dateien) und `server-data/server.cfg` mit `permissions.cfg`, `ox.cfg`, `voice.cfg` und `misc.cfg`.
 
-Entscheide dich für **eines**. Qbox stellt `qb-core` bereit (`provide 'qb-core'`), QBCore und Qbox
-gleichzeitig geht nicht.
+Warum Qbox (Stand September 2026, Details in [entscheidungen.md](entscheidungen.md#qbox-als-framework)):
 
-| Framework   | Quelle                                        | Braucht                                                   | SQL                                            |
-|-------------|-----------------------------------------------|-----------------------------------------------------------|------------------------------------------------|
-| ESX Legacy  | `esx-framework/esx_core`, Branch `main`, 1.15.x | oxmysql, OneSync, eigene `esx_lib` (kein ox_lib nötig)     | `[SQL]/legacy.sql` (eine Datei)                |
-| QBCore      | `qbcore-fivem/qb-*`, Branch `main`            | oxmysql, OneSync (kein ox_lib nötig)                      | `qb-core/qbcore.sql`                           |
-| Qbox        | `Qbox-project/qbx_*`, Branch `main`           | oxmysql, ox_lib, OneSync, FXServer >= 10731, MariaDB >= 10.9 | `qbx_core.sql` plus SQL pro Ressource       |
+- aktiv gepflegt mit regelmäßigen Releases (`qbx_core` v1.24.0 vom August 2026),
+- modernes ox-Paket (ox_lib, ox_inventory, ox_target, oxmysql) statt eigener Inventar- und Menüsysteme,
+- deutsche Sprachdateien für Kern und ox-Ressourcen,
+- `qbx_core` stellt `qb-core` bereit (`provide 'qb-core'` plus Brücke): die meisten QBCore-Skripte laufen weiter,
+  solange sie `qb-core` auf dokumentierte Weise nutzen (nicht z. B. direkt auf dessen Tabellen zugreifen),
+- das Rezept bringt eine komplette Roleplay-Grundlage mit: Jobs, Garagen, Händler, Immobilien, Handy.
 
-## Gemeinsame Voraussetzungen
+## Was installiert ist
 
-### 1. MariaDB
+`install.bat` bzw. `install-resources.sh` legen alles unter `server-data/resources/[vendor]/` ab. Die
+Kategorie-Ordner startet `server.cfg` mit `ensure [kategorie]`.
 
-Alle drei wollen MariaDB (nicht MySQL 8, kein XAMPP). Datenbankname in diesem Repo: `fivem`, User `fivem`.
+| Ordner in `[vendor]` | Inhalt                                                                                                   |
+|----------------------|----------------------------------------------------------------------------------------------------------|
+| `.sources/`          | Keine Ressourcen, von FXServer ignoriert: `qbox-recipe` (Rezept-Repository, liefert `items.lua` und `qbox.sql`) und `qbx_invimages` (Item-Bilder). |
+| `[ox]`               | `ox_lib` (Bibliothek, Menüs, Hinweise), `oxmysql` (Datenbank-Anbindung), `ox_target` (Zielsystem), `ox_inventory` (Inventar, Shops, Lager), `ox_doorlock` (Türschlösser), `ox_fuel` (Tanken). |
+| `[qbx]`              | `qbx_core` (Spieler, Charaktere, Jobs, Gangs) und 47 weitere Qbox-Ressourcen: Spawn, HUD, Radialmenü, Garagen, Fahrzeughändler, Fahrzeugschlüssel, Immobilien, Rathaus, Polizei, Rettungsdienst, Mechaniker, Taxi, Bus, Müllabfuhr, Abschleppdienst, Überfälle, Rennen, Tuning, Admin-Menü und mehr. |
+| `[standalone]`       | Framework-unabhängige Ressourcen: `bob74_ipl` (Innenräume), `illenium-appearance` (Aussehen, Kleidung), `Renewed-Banking` (Bank), `Renewed-Weathersync` (Wetter und Uhrzeit), `scully_emotemenu` (Emotes), `xt-prison` (Gefängnis), `vehiclehandler` (Fahrzeugschaden), `loadscreen` (Ladebildschirm), `screencapture` (Bildschirmfotos), `[MugShotBase64]` (Fahndungsfotos), `safecracker`, `mhacking`, `ultra-voltlab` (Minispiele), `mana_audio` (Audio). |
+| `[voice]`            | `pma-voice` (Sprachchat), `mm_radio` (Funkgerät).                                                        |
+| `[npwd]`             | `npwd` (Handy, fest auf Version 3.16.0), `qbx_npwd` (Qbox-Anbindung).                                    |
+| `[npwd-apps]`        | `npwd_qbx_garages`, `npwd_qbx_mail` (Handy-Apps).                                                        |
+| `[assets]`           | `pillbox` (Krankenhaus-Innenraum).                                                                        |
 
-**Windows, nativ:**
+Aus `[cfx-default]` laufen `mapmanager`, `spawnmanager` und `baseevents`, `chat` kommt aus dem Artifact.
+Drei `copy`-Zeilen im Manifest legen Dateien über andere Ressourcen: die Qbox-Items nach
+`ox_inventory/data/items.lua`, die Qbox-Item-Bilder nach `ox_inventory/web/images` und die Qbox-Konfiguration
+von `qbx_npwd` nach `npwd/config.json` (Format: [ressourcen.md](ressourcen.md#copy)).
 
-```
-winget install --id MariaDB.Server -e
-```
+## Voraussetzungen
 
-Der Installer fragt nach einem root-Passwort und legt den Dienst `MariaDB` an. Danach in einer
-Eingabeaufforderung (Versionsnummer im Pfad anpassen, z. B. `MariaDB 12.3`):
+- **OneSync** an. Steht in keiner cfg-Datei: txAdmin setzt es selbst (Settings > FXServer, Standard "on"),
+  der Direktmodus übergibt `+set onesync on` vor `+exec server.cfg`.
+- **FXServer-Artifact >= 10731** (`qbx_core` verlangt das). Der Kanal `recommended` (35245) passt; der Kanal
+  `optional` (Build 7290) ist zu alt für Qbox.
+- **MariaDB >= 10.9**, empfohlen 12.3 LTS. Einrichten und SQL-Import: [datenbank.md](datenbank.md).
+- `server.cfg` setzt `sv_enforceGameBuild 3751`.
 
-```
-"C:\Program Files\MariaDB 12.3\bin\mariadb.exe" -u root -p -e "CREATE DATABASE IF NOT EXISTS fivem CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; CREATE USER IF NOT EXISTS 'fivem'@'localhost' IDENTIFIED BY 'DEIN_PASSWORT'; GRANT ALL PRIVILEGES ON fivem.* TO 'fivem'@'localhost'; FLUSH PRIVILEGES;"
-```
+## Abweichungen vom Rezept
 
-**Windows, Docker Desktop:** nur den `db`-Service starten, vorher in `docker/docker-compose.yml` die
-`ports`-Zeilen `127.0.0.1:3306:3306` beim `db`-Service einkommentieren und `.env` aus `.env.example` anlegen:
+Das Rezept deployt in einen leeren Ordner und schreibt eine eigene `server.cfg`. Hier läuft stattdessen die
+committete Konfiguration, deshalb unterscheidet sich Folgendes:
 
-```
-docker compose --env-file .env -f docker/docker-compose.yml up -d db
-```
+- **Kein Deploy über txAdmin.** Die Download-, Kopier- und SQL-Schritte des Rezepts stehen bis auf die hier
+  genannten Ausnahmen 1:1 in `resources.txt` und `database.txt`, txAdmin wird mit "Existing Server Data"
+  eingerichtet.
+- **Logo entfällt.** Das Rezept kopiert sein Logo über `loadscreen/html/assets/logo.png` und setzt es als
+  Server-Icon. Hier bleibt das Logo von `loadscreen`, `load_server_icon` ist auskommentiert.
+- **`config.json` wird kopiert, nicht verschoben.** Das Rezept verschiebt `qbx_npwd/config.json` nach `npwd/`.
+  Das Verschieben würde eine versionierte Datei im Git-Klon von `qbx_npwd` löschen und späteres
+  `git pull --ff-only` stören.
+- **MugShotBase64 liegt in einem Klammer-Ordner.** Das Repo hat die Ressource im Unterordner `MugShotBase64/`,
+  deshalb wird es nach `[vendor]/[standalone]/[MugShotBase64]` geklont. README und LICENSE bleiben eine Ebene
+  darüber liegen, FXServer findet die Ressource darunter.
+- **`sessionmanager` und `hardcap` werden nicht gestartet.** Beide gibt es in `cfx-server-data` nicht mehr, das
+  Rezept-`ensure` würde nur `Couldn't find resource` melden.
+- **`remove_path` für `[cfx-default]/[gameplay]/chat` entfällt.** `cfx-server-data` enthält `chat` nicht mehr,
+  `ensure chat` startet den Systemchat aus dem Artifact.
+- **`stop basic-gamemode`** wie im Rezept: `basic-gamemode` schaltet den automatischen Spawn ein und kollidiert
+  mit der Charakterauswahl.
+- **Spielversion 3751 statt 3258.** Qbox nennt keinen Pflicht-Build, jeder Build enthält die Inhalte der
+  früheren. Bei Problemen mit einzelnen Innenräumen testweise `sv_enforceGameBuild 3258` setzen.
+- **Deutsche Sprache** über Convars (`ox:locale`, `illenium-appearance:locale`, `qb_locale`) und deutsche
+  Texte für Chat-Meldungen und MOTD.
+- **Keine automatischen Admin-Rechte.** Das Rezept trägt den txAdmin-Master-Account per
+  `{{addPrincipalsMaster}}` als Admin ein. Hier machst du das von Hand in `server.cfg`, Abschnitt "Admin-Rechte"
+  (`add_principal identifier.license:... group.admin`).
+- **`quit` für Admins gesperrt.** `permissions.cfg` ergänzt `add_ace group.admin command.quit deny` (wie die
+  cfx-Standard-server.cfg), damit ein Admin im Spiel den Server nicht per `quit` beendet.
+- **Geheimnisse in `secrets.cfg`.** Lizenzschlüssel, `mysql_connection_string`, RCON, `steam_webApiKey` und die
+  npwd-Tokens stehen nicht in `server.cfg`, sondern in der gitignorierten `secrets.cfg`.
+- **`steam_webApiKey` bleibt ungesetzt.** Das Rezept setzt ihn auf `"none"`, hier steht er nur als auskommentierte
+  Vorlage in `secrets.cfg.example`.
+- **`qbx:discordLink`** ist ein deutscher Hinweistext ("Frag einen Admin") statt des Qbox-Einladungslinks.
+- **Reihenfolge der cfg-Dateien.** `permissions.cfg` und `misc.cfg` werden vor `secrets.cfg` und dem ensure-Block
+  geladen (Rezept: nach dem ensure-Block). Das ändert nichts, weil ACE-Rechte erst zur Laufzeit geprüft werden und
+  `misc.cfg` nur einen Convar setzt.
+- **Kein Warteschritt.** Der `waste_time`-Schritt des Rezepts entfällt.
+- **SQL mit Buchführung.** Jede SQL-Datei läuft genau einmal; idempotente Dateien sind mit `rerun` markiert und
+  laufen nach Änderungen erneut ([datenbank.md](datenbank.md#so-funktioniert-der-import)).
+- **Zeichensatz der Datenbank.** Das Rezept legt die Datenbank mit utf8/utf8_general_ci an,
+  `setup-database --create` bzw. `-Create` mit utf8mb4/utf8mb4_unicode_ci (wie die Qbox-Tabellen). Unter Docker
+  legt der `db`-Container die Datenbank mit dem Server-Standard an; Tabellen ohne eigenen Zeichensatz
+  (npwd `import.sql`) erben ihn.
+- **`sprunk` statt `cola` in der Fahrzeug-Beute.** Das Rezept trägt in `inventory:vehicleloot` das Item `cola`
+  ein, das weder die Qbox-Items noch ox_inventory definieren. ox_inventory meldet dann `item does not exist`
+  und legt nichts ab. `ox.cfg` nutzt stattdessen das GTA-Getränk `sprunk`, das in den Qbox-Items existiert.
 
-Datenbank und User kommen dann aus `MYSQL_DATABASE`, `MYSQL_USER`, `MYSQL_PASSWORD` der `.env`. Host für den
-Verbindungs-String ist `localhost`.
+## Qbox aktualisieren
 
-**Linux:** `sudo bash scripts/linux/install.sh --with-mariadb` (auch nachträglich möglich). Legt Datenbank und
-User an und schreibt `mysql_connection_string` in `secrets.cfg`. Root-Zugang: `sudo mariadb`.
-Ubuntu 24.04 liefert MariaDB 10.11, das reicht für alle drei (Qbox braucht mindestens 10.9).
+- `deploy.sh` (Linux) bzw. `install.bat -UpdateResources` (Windows) machen `git pull --ff-only` in allen
+  git-Zielen. Die Qbox-Repos stehen wie im Rezept auf `main`, jedes Deploy holt also den neuesten Stand.
+- zip-Einträge mit `releases/latest/download/...` (ox_lib, oxmysql, ox_inventory, illenium-appearance usw.)
+  ändern sich mit `--update`/`-Update` **nicht**. Neue Releases holt nur `--force`/`-Force`, das alle Ziele neu lädt.
+- Wer einen Stand festhalten will, setzt im Manifest bei git-Zeilen ein Tag als `[ref]` bzw. bei zip-Zeilen eine
+  Release-URL mit fester Version (wie bei npwd `.../releases/download/3.16.0/npwd.zip`), siehe
+  [ressourcen.md](ressourcen.md#fester-stand-oder-immer-aktuell).
+- Neue SQL-Dateien und geänderte `rerun`-Dateien importiert `setup-database` automatisch (auch in `deploy.sh`).
+  Andere geänderte Dateien erzeugen nur eine Warnung.
+- Vor größeren Updates Datenbank sichern ([datenbank.md](datenbank.md#backup-und-wiederherstellung)) und nach dem
+  Update die Serverkonsole auf Fehler prüfen.
 
-**Docker Compose:** der `db`-Service, Host im Verbindungs-String ist `db`.
+## Sprache
 
-### 2. Verbindungs-String in secrets.cfg
+- `setr ox:locale "de"` in `ox.cfg` gilt für ox_lib und alle Ressourcen mit `locales/*.json`, also Qbox und die
+  ox-Ressourcen.
+- `setr illenium-appearance:locale "de"` in `server.cfg` für Aussehen und Kleidung.
+- `setr qb_locale "de"` wirkt nur für zusätzliche QBCore-Skripte über die Brücke, keine Rezept-Ressource liest es.
+- Das Handy (npwd) stellt die Sprache in den Einstellungen des Handys um.
+- Ohne deutsche Übersetzung (fallen auf Englisch zurück oder haben feste englische Texte): `xt-prison`,
+  `npwd_qbx_garages`, `npwd_qbx_mail`, `qbx_idcard`, `qbx_streetraces`, `qbx_scoreboard`.
+- Spieler dürfen die Sprache nicht selbst wählen (`setr ox:userLocales 0`).
 
-```
-set mysql_connection_string "mysql://fivem:DEIN_PASSWORT@localhost/fivem?charset=utf8mb4"
-```
+## Zu ESX Legacy oder QBCore wechseln (kurz)
 
-Diese Sonderzeichen im Passwort vermeiden: `; , / ? : @ & = + $ #`. Auf Linux mit `--with-mariadb` und in
-Docker ist die Zeile schon eingetragen.
+Frameworks lassen sich nicht mischen, `qbx_core` stellt selbst `qb-core` bereit. Für einen Wechsel:
 
-### 3. oxmysql und ox_lib installieren
+1. In `resources.txt` alle Zeilen unterhalb des Kopfes durch die Ressourcen des neuen Frameworks ersetzen, in
+   `database.txt` die SQL-Zeilen, in `server.cfg` den ensure-Block und die Qbox-Convars. `ox.cfg`,
+   `permissions.cfg` und `voice.cfg` an das neue Framework anpassen.
+2. Eine **neue, leere Datenbank** verwenden, z. B.
+   `sudo bash scripts/linux/setup-database.sh --create --db esx --db-user esx --reset-password` bzw.
+   `setup-database.bat -Create -DbName esx -DbUser esx -ResetPassword`. `repo_sql_imports` beginnt dort leer.
+3. Server stoppen und den kompletten Ordner `server-data/resources/[vendor]` löschen (oder umbenennen), damit keine
+   Qbox-Ressourcen mit gleichen Namen übrig bleiben (`--force` lädt nur Ziele neu, die im aktuellen Manifest
+   stehen). `[cfx-default]` und `[local]` bleiben.
+4. `install-resources --force`, `setup-database --import`, Server starten.
 
-In `server-data/resources.txt` die Zeilen aktivieren (`#` entfernen):
-
-```
-zip [vendor]/oxmysql https://github.com/overextended/oxmysql/releases/latest/download/oxmysql.zip
-zip [vendor]/ox_lib https://github.com/overextended/ox_lib/releases/latest/download/ox_lib.zip
-```
-
-ox_lib nur, wenn du es brauchst (Qbox: Pflicht; ESX und QBCore: optional, viele Zusatzskripte wollen es).
-Dann installieren: Windows `scripts\windows\install.bat`, Linux `scripts/linux/install-resources.sh`.
-In `server.cfg` im Abschnitt "Ressourcen" einkommentieren:
-
-```
-ensure oxmysql
-ensure ox_lib
-```
-
-`exec secrets.cfg` steht in `server.cfg` bereits vor dem ensure-Block, oxmysql kennt den Verbindungs-String
-also beim Start. OneSync steht in keiner cfg-Datei: im txAdmin-Modus verwaltet txAdmin es selbst
-(Settings > FXServer, Standard "on"), im Direktmodus übergeben `start-direct.bat` bzw.
-`bash ../artifacts/run.sh +set onesync on +exec server.cfg` es als Startargument.
-
-### 4. SQL importieren
-
-Die SQL-Dateien legen keine Datenbank an, `fivem` muss existieren.
-
-```
-Windows (cmd):  "C:\Program Files\MariaDB 12.3\bin\mariadb.exe" -u fivem -p fivem < "server-data\resources\[vendor]\[esx]\[SQL]\legacy.sql"
-Linux:          mariadb fivem < "/opt/fivem/server-data/resources/[vendor]/[esx]/[SQL]/legacy.sql"     (als root, unix_socket)
-Docker:         docker compose --env-file .env -f docker/docker-compose.yml exec -T db mariadb -u fivem -pPASSWORT fivem < "server-data/resources/[vendor]/[esx]/[SQL]/legacy.sql"
-```
-
-In PowerShell funktioniert `<` nicht; dort `cmd /c "..."` nutzen oder HeidiSQL
-(`winget install --id HeidiSQL.HeidiSQL -e`, Datei > SQL-Datei ausführen).
-
-## Zwei Wege zur Installation
-
-**Weg A, resources.txt (reproduzierbar, git-freundlich):** die vorbereiteten Blöcke im Manifest aktivieren,
-Installer laufen lassen, SQL importieren, `ensure`-Zeilen setzen. Nachteil: Du bekommst nur die Ressourcen,
-die im Manifest stehen. Bei ESX ist das der komplette Kern, bei QBCore ein Startsatz, bei Qbox nur der Kern.
-
-**Weg B, txAdmin-Rezept in einen frischen Ordner, dann kopieren:** txAdmin kann ein Rezept nur in einen
-leeren Ordner deployen, nicht in das bestehende `server-data`. Ablauf:
-
-1. Server per `start.bat` (Windows) bzw. `systemctl start fxserver` (Linux) starten und txAdmin öffnen.
-2. Server in txAdmin stoppen. Unter Settings > FXServer die Server-Einstellungen zurücksetzen ("Reset FXServer
-   Settings"), danach zeigt txAdmin wieder die Setup-Seite (sonst <http://localhost:40120/setup> aufrufen).
-   Dort "Popular Recipes" wählen: "ESX Legacy", "QBCore" oder "Qbox".
-3. Zielordner: der Vorschlag liegt unter `txData/<name>_<zeit>.base` (gitignored, passt). Datenbank-Daten
-   eingeben (Host, Port 3306, User `fivem`, Passwort, Datenbank `fivem`), Lizenzschlüssel eingeben,
-   "Run Recipe". Das Rezept lädt alle Ressourcen und importiert die SQL-Dateien selbst.
-4. Nach dem Deploy den Server **nicht** aus diesem Ordner laufen lassen, sondern kopieren:
-   - Ressourcen-Kategorien aus `txData/<name>.base/resources/` (z. B. `[core]`, `[esx_addons]`, `[standalone]`,
-     `[qb]`, `[qbx]`, `[ox]`, `[voice]`) nach `server-data/resources/[vendor]/` verschieben.
-     `[cfx-default]` nicht doppelt übernehmen.
-   - Die `server.cfg` des Rezepts mit der eigenen vergleichen: `ensure`-Zeilen, `setr`/`set`-Convars und
-     `add_ace`/`add_principal`-Zeilen in die eigene `server.cfg` übernehmen. Den `sv_licenseKey` und den
-     `mysql_connection_string` daraus **nicht** übernehmen (gehören in `secrets.cfg`, sind dort schon).
-   - Weitere cfg-Dateien des Rezepts (`ox.cfg`, `permissions.cfg`, `voice.cfg` bei Qbox) nach `server-data/`
-     kopieren und per `exec` einbinden, wenn du sie brauchst.
-5. In txAdmin Settings > FXServer den Server Data Folder wieder auf `server-data` und die CFG auf `server.cfg`
-   stellen, Server starten.
-6. Dokumentiere die kopierten Ressourcen im Manifest (als `git`/`zip`-Einträge), damit ein frischer Checkout
-   sie wieder holt; `[vendor]` selbst ist gitignored.
-
-Weg B ist der sicherste Weg zu einem vollständigen, lauffähigen Framework-Server, Weg A der sauberste für Git.
-
-## ESX Legacy
-
-Repo `esx-framework/esx_core` hat keine Release-Zips, deshalb wird es komplett geklont. Die Ressourcen
-liegen darin unter `[core]/` (es_extended, esx_lib, esx_menu_*, esx_identity, esx_skin, skinchanger, ...),
-das SQL unter `[SQL]/legacy.sql`. Ordner wie `.github/` oder `[SQL]/` ignoriert FXServer. Der Submodul-Ordner
-`esx_multicharacter` bleibt bei `--depth 1` leer, das ist unkritisch.
-
-1. MariaDB, Verbindungs-String, oxmysql wie oben (ox_lib optional).
-2. In `resources.txt` aktivieren:
-
-   ```
-   git [vendor]/[esx] https://github.com/esx-framework/esx_core.git main
-   ```
-
-   Installer laufen lassen. Ergebnis: `server-data/resources/[vendor]/[esx]/[core]/...`.
-3. SQL importieren: `[vendor]/[esx]/[SQL]/legacy.sql` (Befehle oben).
-4. In `server.cfg` einkommentieren bzw. ergänzen (Reihenfolge wichtig):
-
-   ```
-   ensure oxmysql
-   ensure esx_lib
-   ensure es_extended
-   ensure [core]
-   ```
-
-   Zusätzlich die ACE-Zeilen aus der ESX-Vorlage in den Abschnitt "Admin-Rechte":
-
-   ```
-   add_ace resource.es_extended command.add_ace allow
-   add_ace resource.es_extended command.add_principal allow
-   add_ace resource.es_extended command.remove_principal allow
-   add_ace resource.es_extended command.stop allow
-   ```
-
-   Optional: `setr esx:locale "de"` (sofern `[core]/es_extended/locales/de.lua` existiert),
-   `set mysql_ui true` für den `/mysql`-Befehl (braucht `command`-ACE).
-5. Server starten und in der Konsole prüfen, dass `es_extended` ohne SQL-Fehler hochkommt.
-
-Das offizielle Rezept (`https://raw.githubusercontent.com/esx-framework/ESX-recipes/legacy/recipe.yaml`)
-holt zusätzlich `ESX-Legacy-Addons` (`[esx_addons]`), `bob74_ipl`, `pma-voice`, `ox_lib` und das
-`sd-phone`. Wenn du das alles willst, nimm Weg B.
-
-## QBCore
-
-Die Organisation ist nach `github.com/qbcore-fivem` umgezogen (alte `qbcore-framework`-URLs leiten um).
-Es gibt keine offizielle Minimal-Liste; das Rezept installiert rund 60 `qb-*`-Ressourcen. Der Block in
-`resources.txt` ist ein Startsatz aus zwölf Repos (qb-core, qb-multicharacter, qb-spawn, qb-apartments,
-qb-clothing, qb-weathersync, qb-smallresources, qb-inventory, qb-target, qb-menu, qb-input, qb-hud).
-Ob dieser Satz ohne Anpassung spielbar ist, wurde nicht verifiziert; fehlende Abhängigkeiten stehen dann in
-der Serverkonsole und lassen sich nach demselben Muster ergänzen.
-
-1. MariaDB, Verbindungs-String, oxmysql wie oben (qb-core braucht kein ox_lib).
-2. In `resources.txt` den QBCore-Block aktivieren, Installer laufen lassen. Ergebnis
-   `server-data/resources/[vendor]/[qb]/qb-*`.
-3. SQL importieren: `[vendor]/[qb]/qb-core/qbcore.sql`.
-4. In `server.cfg`:
-
-   ```
-   ensure oxmysql
-   ensure qb-core
-   ensure [qb]
-
-   setr qb_locale "de"
-   setr UseTarget false          # true, wenn qb-target genutzt werden soll
-
-   add_ace resource.qb-core command allow
-   add_ace qbcore.god command allow
-   add_principal qbcore.god group.admin
-   add_principal qbcore.god qbcore.admin
-   add_principal qbcore.admin qbcore.mod
-   ```
-
-   Das Rezept ensured außerdem `baseevents` (liegt in `[cfx-default]/[system]`) und `pma-voice` (`[voice]`).
-5. Server starten, per `/setjob` oder txAdmin-Menü testen. Rezept-URL für Weg B:
-   `https://raw.githubusercontent.com/qbcore-framework/txAdminRecipe/main/qbcore.yaml`.
-
-## Qbox
-
-Qbox baut vollständig auf ox_lib, oxmysql und den ox-Ressourcen auf. `qbx_core` verlangt FXServer >= 10731,
-OneSync, `ox_lib` und `oxmysql` (alles hier erfüllt) sowie MariaDB >= 10.9 (Qbox empfiehlt 12.3 LTS,
-Ubuntu 24.04 liefert 10.11, `mariadb:11` in Docker passt). XAMPP wird von Qbox ausdrücklich nicht unterstützt.
-
-Der Block in `resources.txt` installiert nur `ox_target`, `ox_inventory` und `qbx_core`. Ein spielbarer
-Qbox-Server besteht laut Rezept aus rund 50 `qbx_*`-Ressourcen, `ox_doorlock`, `ox_fuel`, `npwd` und mehreren
-SQL-Dateien. Für Qbox ist deshalb **Weg B** (Rezept in frischen Ordner, dann kopieren) klar zu empfehlen.
-
-Weg A, nur der Kern:
-
-1. MariaDB, Verbindungs-String, **oxmysql und ox_lib** wie oben.
-2. In `resources.txt` aktivieren:
-
-   ```
-   zip [vendor]/ox_target https://github.com/overextended/ox_target/releases/latest/download/ox_target.zip
-   zip [vendor]/ox_inventory https://github.com/overextended/ox_inventory/releases/latest/download/ox_inventory.zip
-   git [vendor]/[qbx]/qbx_core https://github.com/Qbox-project/qbx_core.git main
-   ```
-
-3. SQL importieren: `[vendor]/[qbx]/qbx_core/qbx_core.sql` (weitere Ressourcen bringen eigene SQL-Dateien mit,
-   z. B. `qbx_vehicles/vehicles.sql`).
-4. In `server.cfg` (Reihenfolge aus dem Rezept):
-
-   ```
-   ensure oxmysql
-   ensure ox_lib
-   ensure qbx_core
-   ensure ox_target
-   ensure ox_inventory
-   ensure [qbx]
-
-   setr qb_locale "de"
-   setr ox:locale "de"
-   setr inventory:framework "qbx"
-   setr qbx:enableBridge "true"
-   set qbx:enableQueue "true"
-   set qbx:max_jobs_per_player 1
-   ```
-
-   Das Rezept stoppt außerdem `basic-gamemode` (`stop basic-gamemode` statt `ensure`), damit Spieler nicht
-   ohne Charakterauswahl spawnen. Rezept-URL: `https://raw.githubusercontent.com/Qbox-project/txAdminRecipe/refs/heads/main/qbox.yaml`.
-5. Server starten, Konsole auf fehlende Abhängigkeiten prüfen.
+Vorlage sind die offiziellen Rezepte:
+ESX Legacy <https://raw.githubusercontent.com/esx-framework/ESX-recipes/legacy/recipe.yaml>,
+QBCore <https://raw.githubusercontent.com/qbcore-framework/txAdminRecipe/main/qbcore.yaml>.
+Jeder `download_github`/`download_file`-Schritt wird zu einer `git`- bzw. `zip`-Zeile, jeder `move_path`/`copy_path`
+zu einer `copy`-Zeile, jeder `query_database`-Schritt zu einer Zeile in `database.txt`.
 
 ## Prüfen und Fehlersuche
 
-- `oxmysql` meldet beim Start `Database server connection established`. Fehlt das: Verbindungs-String,
-  Passwort-Sonderzeichen, läuft MariaDB (`systemctl status mariadb`, Windows: Dienst `MariaDB`)?
-- `Couldn't find resource ...`: Ressource nicht installiert, falsche Reihenfolge der `ensure`-Zeilen oder
-  Ordnername weicht vom Ressourcennamen ab. Betrifft es `mapmanager`, `spawnmanager` oder `basic-gamemode`,
-  fehlt `[cfx-default]`: unter Windows `install.bat` ohne `-SkipResources` ausführen (bei einem kaputten Ordner
-  `install.bat -ForceResources`), unter Linux `scripts/linux/install-resources.sh` (bei einem kaputten Ordner
-  mit `--force`). Sonst `refresh` in der Konsole, dann `ensure <name>`.
-- `Table 'fivem.users' doesn't exist`: SQL nicht oder in die falsche Datenbank importiert.
-- ox_lib startet nicht: OneSync aus. Im txAdmin-Modus Settings > FXServer > OneSync "on". Im Direktmodus
-  `start-direct.bat` nutzen bzw. `+set onesync on` vor `+exec server.cfg` mitgeben; kein `set onesync on` in
-  `server.cfg` oder `secrets.cfg` eintragen, txAdmin würde die Zeile beim nächsten Start auskommentieren.
-- Alte `mysql-async`/`ghmattimysql`-Skripte funktionieren mit oxmysql weiter (`provide`-Einträge).
-- Sprachdateien: ESX, QBCore und Qbox bringen `de`-Locales mit; fehlt eine Übersetzung in einer Zusatzressource,
-  fällt sie auf Englisch zurück.
+- **Datenbank:** `setup-database --dry-run` zeigt, ob die Verbindung klappt und alle SQL-Dateien importiert sind.
+  Verbindungsfehler von oxmysql beim Start: Sonderzeichen im Passwort, `Database=` statt `database=`, MariaDB aus?
+  Siehe [datenbank.md](datenbank.md#fehlerbilder).
+- **`Table 'fivem....' doesn't exist`:** SQL nicht importiert, `setup-database` ausführen.
+- **`Couldn't find resource ...`:** Ressource nicht installiert (Ausgabe von `install-resources` prüfen) oder
+  Tippfehler im ensure. Betrifft es `mapmanager`, `spawnmanager` oder `baseevents`, fehlt `[cfx-default]`:
+  Windows `install.bat` ohne `-SkipResources`, Linux `scripts/linux/install-resources.sh` (bei kaputtem Ordner
+  mit `-ForceResources` bzw. `--force`).
+- **Items fehlen oder heißen falsch, keine Item-Bilder:** Die `copy`-Zeilen sind nicht gelaufen. In der Ausgabe
+  von `install-resources` nach `[copy]` suchen; `install-resources --check` prüft die Reihenfolge.
+- **Keine Charakterauswahl, Spieler spawnt sofort:** `basic-gamemode` läuft. In `server.cfg` muss
+  `stop basic-gamemode` stehen, kein `ensure basic-gamemode`.
+- **ox_lib oder qbx_core starten nicht, Meldung zu OneSync:** txAdmin Settings > FXServer > OneSync "on"; im
+  Direktmodus `start-direct.bat` bzw. `+set onesync on` vor `+exec server.cfg`. Kein `set onesync on` in eine
+  cfg-Datei schreiben, txAdmin kommentiert es aus.
+- **Linke Alt-Taste doppelt belegt:** Funk (`voice_defaultRadio` in `voice.cfg`) und Zielsystem
+  (`ox_target:defaultHotkey` in `ox.cfg`) nutzen beide `LMENU`. Spieler können die Tasten in GTA unter
+  Einstellungen > Tastenbelegung > FiveM ändern; für alle ändern: einen der beiden Werte in der cfg-Datei.
+- **Innenräume fehlen oder flackern:** testweise `sv_enforceGameBuild 3258` in `server.cfg`.
+- **`/admin` geht nicht:** `add_principal` für deine ID in `server.cfg` eintragen (Abschnitt "Admin-Rechte"),
+  Server neu starten.
+- **Englische Texte:** siehe [Sprache](#sprache).

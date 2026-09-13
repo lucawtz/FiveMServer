@@ -1,7 +1,7 @@
 # Windows: lokal installieren und testen
 
 Diese Anleitung beschreibt den lokalen Testbetrieb auf einem Windows-10/11-PC. Alles läuft mit
-Bordmitteln (Windows PowerShell 5.1) plus Git.
+Bordmitteln (Windows PowerShell 5.1) plus Git und MariaDB.
 
 ## Voraussetzungen
 
@@ -12,6 +12,8 @@ Bordmitteln (Windows PowerShell 5.1) plus Git.
   `install.ps1` warnt in diesem Fall. Auch sehr tiefe Pfade vermeiden (260-Zeichen-Limit beim Entpacken).
 - Optional 7-Zip (`winget install --id 7zip.7zip -e`), nur für `-ArchiveFormat 7z`.
 - Ein Lizenzschlüssel aus <https://portal.cfx.re/> (Servers -> Registration Keys -> "Generate Key +").
+- MariaDB ab 10.9 für Qbox. `setup-database.bat -InstallMariaDB` installiert sie per winget (braucht den
+  "App Installer" aus dem Microsoft Store), siehe [Datenbank (MariaDB)](#datenbank-mariadb).
 
 ## Installation
 
@@ -22,7 +24,7 @@ Bordmitteln (Windows PowerShell 5.1) plus Git.
 powershell -NoProfile -ExecutionPolicy Bypass -File "scripts\windows\install.ps1" <alle Parameter>
 ```
 
-Am Ende meldet der Wrapper `[OK]` (Exit 0), `[WARNUNG]` (Exit 2: Ressourcen unvollständig)
+Am Ende meldet der Wrapper `[OK]` (Exit 0), `[WARNUNG]` (Exit 2: Ressourcen oder Datenbank unvollständig)
 oder `[FEHLER] ... Exit-Code N` und wartet auf einen Tastendruck. Alle Parameter werden durchgereicht,
 zum Beispiel aus einer Eingabeaufforderung:
 
@@ -30,6 +32,7 @@ zum Beispiel aus einer Eingabeaufforderung:
 scripts\windows\install.bat -Channel latest -UpdateArtifacts
 scripts\windows\install.bat -UpdateResources
 scripts\windows\install.bat -UpdateArtifacts -SkipResources
+scripts\windows\install.bat -SetupDatabase
 ```
 
 ### Was install.ps1 macht
@@ -37,7 +40,7 @@ scripts\windows\install.bat -UpdateArtifacts -SkipResources
 Vorab-Prüfungen: PowerShell >= 5, 64-Bit, ASCII-Pfad (Warnung), `server-data\` vorhanden (sonst Abbruch),
 TLS 1.2 aktivieren.
 
-Schritt 1/3, Artifacts:
+Schritt 1/4, Artifacts:
 
 - Existieren `artifacts\FXServer.exe` und `artifacts\VERSION.txt` und wurde weder `-UpdateArtifacts` noch
   `-ForceArtifacts` angegeben, wird der Download übersprungen (die installierte Version steht in `VERSION.txt`).
@@ -65,19 +68,32 @@ Schritt 1/3, Artifacts:
 
 - `<repo>\txData` wird nie angefasst.
 
-Schritt 2/3, Ressourcen: ruft `install-resources.ps1 -Update:<UpdateResources> -Force:<ForceResources>` auf
+Schritt 2/4, Ressourcen: ruft `install-resources.ps1 -Update:<UpdateResources> -Force:<ForceResources>` auf
 (siehe unten). Exit 2 dort wird zur Warnung und zum Gesamt-Exit 2, andere Fehler brechen ab. Danach prüft das
-Skript, auch mit `-SkipResources`, ob `mapmanager`, `spawnmanager` und `basic-gamemode` mit `fxmanifest.lua` in
+Skript, auch mit `-SkipResources`, ob `mapmanager`, `spawnmanager` und `baseevents` mit `fxmanifest.lua` in
 `server-data\resources\[cfx-default]` liegen. Fehlt eine, gibt es die Warnung
 `Basis-Ressourcen fehlen in server-data\resources\[cfx-default]: ...` samt Abhilfe und Gesamt-Exit 2.
 
-Schritt 3/3, `secrets.cfg`: fehlt `server-data\secrets.cfg`, wird sie aus `secrets.cfg.example` kopiert.
+Schritt 3/4, `secrets.cfg`: fehlt `server-data\secrets.cfg`, wird sie aus `secrets.cfg.example` kopiert.
 Eine vorhandene Datei bleibt unverändert. Dann prüft das Skript die erste aktive Zeile
 `sv_licenseKey <wert>` bzw. `set sv_licenseKey <wert>`; fehlt sie, ist sie leer oder `changeme`, gibt es die
 Warnung `In secrets.cfg fehlt noch der Lizenzschlüssel (sv_licenseKey steht auf 'changeme' oder ist leer).`
 und am Ende noch einmal `WICHTIG: Ohne Lizenzschlüssel startet der Spielserver nicht.`
 
-Zum Schluss folgt eine Zusammenfassung (Repo, Artifacts, Ressourcen, secrets.cfg) und die nächsten Schritte.
+Schritt 4/4, Datenbank (MariaDB), ruft `setup-database.ps1` auf (siehe [Datenbank (MariaDB)](#datenbank-mariadb)):
+
+- `-SkipDatabase`: übersprungen, Zusammenfassung `übersprungen`.
+- `-SetupDatabase`: `setup-database.ps1 -Create -Import` (fragt das MariaDB-Root-Passwort ab).
+- Sonst, wenn `secrets.cfg` ein aktives `set mysql_connection_string` enthält: `setup-database.ps1 -Import`
+  (importiert nur ausstehende SQL-Dateien).
+- Sonst: Warnung `In secrets.cfg fehlt mysql_connection_string. Qbox startet ohne Datenbank nicht.`, die
+  Zusammenfassung zeigt `nicht eingerichtet` und einen Block "Datenbank einrichten (Pflicht für Qbox)" mit
+  `setup-database.bat -InstallMariaDB` und `setup-database.bat -Create -Import`. Der Exit-Code ändert sich dadurch nicht.
+- Endet `setup-database.ps1` mit einem Exit-Code ungleich 0, gibt es eine Warnung, die Zusammenfassung zeigt
+  `unvollständig (setup-database.ps1 Exit-Code N)` und der Gesamt-Exit ist 2.
+
+Zum Schluss folgt eine Zusammenfassung (Repo, Artifacts, Ressourcen, secrets.cfg, Datenbank) und die nächsten
+Schritte, inklusive Hinweis auf die License Allowlist.
 
 ### Parameter von install.ps1
 
@@ -90,10 +106,13 @@ Zum Schluss folgt eine Zusammenfassung (Repo, Artifacts, Ressourcen, secrets.cfg
 | `-UpdateResources`      | Wird als `-Update` an `install-resources.ps1` gereicht (`git pull --ff-only` für Git-Einträge).             |
 | `-ForceResources`       | Wird als `-Force` an `install-resources.ps1` gereicht (alles löschen und neu holen).                        |
 | `-SkipResources`        | Schritt 2 überspringen, nur für reine Artifact-Updates bei installierten Ressourcen. Die Prüfung der Basis-Ressourcen läuft trotzdem.                                                                            |
+| `-SetupDatabase`        | Schritt 4 richtet die Datenbank ein: `setup-database.ps1 -Create -Import`. MariaDB muss installiert sein (`setup-database.bat -InstallMariaDB`). |
+| `-SkipDatabase`         | Schritt 4 komplett überspringen. Zusammen mit `-SetupDatabase` bricht das Skript ab (Exit 1).              |
 
 `Get-Help .\scripts\windows\install.ps1 -Full` zeigt die eingebaute Hilfe. Exit-Codes: 0 ok, 1 Abbruch mit
-Fehler, 2 fertig, aber Ressourcen unvollständig (mindestens ein Manifest-Eintrag fehlgeschlagen oder
-Basis-Ressourcen fehlen).
+Fehler (auch `-SetupDatabase` zusammen mit `-SkipDatabase`), 2 fertig, aber Ressourcen oder Datenbank
+unvollständig (mindestens ein Manifest-Eintrag fehlgeschlagen, Basis-Ressourcen fehlen oder `setup-database.ps1`
+meldet einen Fehler). Fehlt nur der `mysql_connection_string`, bleibt der Exit-Code unverändert.
 
 Zip-Archive werden mit .NET (`System.IO.Compression.ZipFile`) entpackt. Für `.7z` sucht das Skript in dieser
 Reihenfolge: `7z` im PATH, `%ProgramFiles%\7-Zip\7z.exe`, `%ProgramFiles(x86)%\7-Zip\7z.exe`, zuletzt
@@ -113,6 +132,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\windows\install-reso
 | `-Update`               | Bei vorhandenen Git-Zielen `git pull --ff-only`. Zip-Ziele bleiben unverändert.                 |
 | `-Force`                | `[cfx-default]` neu installieren, alle Manifest-Ziele löschen und neu klonen bzw. neu laden.     |
 | `-ManifestPath <datei>` | Anderes Manifest. Standard `<repo>\server-data\resources.txt`. Ein explizit angegebenes, fehlendes Manifest bricht ab (Exit 1); fehlt das Standard-Manifest, gibt es nur eine Warnung (Exit 0). |
+| `-Check`                | Nur das Manifest prüfen (Format, Pfade, Reihenfolge der `copy`-Zeilen). Kein Netzwerk, kein git, nichts wird installiert. Exit 0 gültig, 1 ungültig oder Manifest fehlt. |
 
 Ablauf:
 
@@ -120,8 +140,9 @@ Ablauf:
    wird übersprungen. Sonst `git clone --depth 1 https://github.com/citizenfx/cfx-server-data.git` in
    `%TEMP%\fivem-cfx-default-xxxxxxxx\` und `resources\*` nach `[cfx-default]` kopieren. Der leere
    `[local]`-Ordner aus dem Repo wird bewusst nicht übernommen. Ergebnis: `[gamemodes] [gameplay] [managers] [system] [test]`.
-2. Manifest verarbeiten (Format in [ressourcen.md](ressourcen.md)). Alle Einträge werden abgearbeitet, auch
-   wenn einzelne fehlschlagen. Zusammenfassung: `Manifest-Einträge: N gesamt, a installiert, b aktualisiert,
+2. Manifest verarbeiten (Format in [ressourcen.md](ressourcen.md)), Zeile für Zeile in der Reihenfolge der
+   Datei. `copy`-Zeilen laufen bei jedem Aufruf (Log `[copy] <quelle> -> <ziel>: ...`). Alle Einträge werden
+   abgearbeitet, auch wenn einzelne fehlschlagen. Zusammenfassung: `Manifest-Einträge: N gesamt, a installiert, b aktualisiert,
    c übersprungen, d fehlgeschlagen` plus Liste der Fehler.
 
 Fehlt `git`, bricht schon `install.ps1` vor dem Artifact-Download ab: `git wurde nicht gefunden, wird aber
@@ -133,7 +154,8 @@ Meldung `git wurde nicht gefunden. Bitte installieren: winget install Git.Git  (
 Passwort zu fragen.
 
 Exit-Codes: 0 ok, 1 Abbruch (git fehlt beim Basis-Schritt, Klonen von cfx-server-data fehlgeschlagen,
-explizites Manifest fehlt, `server-data` fehlt), 2 mindestens ein Manifest-Eintrag fehlgeschlagen.
+explizites Manifest fehlt, `server-data` fehlt; mit `-Check`: Manifest fehlt oder ungültig), 2 mindestens ein
+Manifest-Eintrag fehlgeschlagen.
 
 ## Starten
 
@@ -146,7 +168,9 @@ explizites Manifest fehlt, `server-data` fehlt), 2 mindestens ein Manifest-Eintr
 3. warnt, wenn `artifacts\VERSION.txt` fehlt (Artifacts vermutlich unvollständig, `install.bat` lädt dann neu),
 4. warnt und wartet auf eine Taste, wenn `[cfx-default]\[managers]\spawnmanager\fxmanifest.lua` fehlt
    (Basis-Ressourcen nicht installiert, im Spiel würde niemand spawnen),
-5. warnt, wenn `server-data\secrets.cfg` fehlt oder noch `changeme` enthält (txAdmin startet trotzdem),
+5. warnt, wenn `server-data\secrets.cfg` fehlt oder noch `changeme` enthält (txAdmin startet trotzdem), und wenn
+   darin kein aktives `set mysql_connection_string` steht
+   (`[WARNUNG] In secrets.cfg fehlt mysql_connection_string. Qbox braucht die Datenbank: scripts\windows\setup-database.bat -Create -Import`),
 6. setzt die Umgebungsvariablen `TXHOST_DATA_PATH=<repo>\txData` und `TXHOST_TXA_PORT=40120`,
 7. startet `artifacts\FXServer.exe` ohne Argumente. Ohne `+exec` startet FXServer automatisch txAdmin.
 
@@ -169,7 +193,13 @@ ergeben aber denselben Pfad.
    ("Only select this option if you already have a server.cfg and a resources folder").
 4. Server Data Folder: `C:\FiveMServer\server-data` (txAdmin prüft, dass darin `resources\` liegt und nicht leer ist).
    CFG File: `server.cfg`. Speichern, der Server startet.
-5. Im Spiel: `F8`, dann `connect localhost:30120`. Im Chat `/hallo` eingeben.
+5. Im Spiel: `F8`, dann `connect localhost:30120`. Qbox zeigt die Charakterauswahl: einen Charakter anlegen,
+   danach Aussehen und Kleidung (illenium-appearance) festlegen. Im Chat `/hallo` eingeben.
+6. Admin-Rechte im Spiel (z. B. `/admin` aus `qbx_adminmenu`): in txAdmin unter Players deine IDs nachsehen,
+   in `server.cfg` im Abschnitt "Admin-Rechte" eine `add_principal identifier.license:... group.admin`-Zeile
+   einkommentieren, Server neu starten.
+7. Wer außer dir auf den Server darf, regelt die License Allowlist von txAdmin, siehe
+   [linux-server.md, Nur Freunde zulassen](linux-server.md#nur-freunde-zulassen-license-allowlist). Das gilt lokal genauso.
 
 Beim ersten Start fragt die Windows-Firewall nach `FXServer`. Für `connect localhost:30120` auf demselben PC ist
 die Antwort egal, für Freunde zählt sie: siehe [Freunde verbinden](#freunde-verbinden).
@@ -178,8 +208,8 @@ OneSync: steht absichtlich in keiner cfg-Datei, weder in `server.cfg` noch in `s
 verwaltet txAdmin OneSync selbst (Settings > FXServer, Standard "on"). Schreibst du trotzdem `set onesync on`
 in eine der beiden Dateien, kommentiert txAdmin die Zeile beim ersten Start mit `## [txAdmin CFG validator]: ...`
 aus (auch in per `exec` geladenen Dateien) und `server.cfg` wäre in Git dauerhaft geändert. Der Direktmodus
-bekommt OneSync stattdessen als Startargument von `start-direct.bat` (siehe unten); `sv_maxclients 32` und
-ox_lib brauchen es.
+bekommt OneSync stattdessen als Startargument von `start-direct.bat` (siehe unten); `sv_maxclients 32`,
+Qbox und ox_lib brauchen es.
 
 Der Lizenzschlüssel wird bei "Existing Server Data" nicht abgefragt. Er kommt über `exec secrets.cfg` in
 `server.cfg` herein. Nur der Recipe-Deployer für komplett neue Server fragt nach dem Key.
@@ -194,7 +224,7 @@ Für schnelles Entwickeln mit der Serverkonsole im Fenster. Das Skript:
 1. prüft `artifacts\FXServer.exe`, `server-data\server.cfg` und `server-data\secrets.cfg`
    (jeweils `[FEHLER]`, Exit 1; bei fehlender `secrets.cfg` wird der `copy`-Befehl angezeigt),
 2. warnt wie `start.bat` bei fehlender `artifacts\VERSION.txt` und fehlenden Basis-Ressourcen (dort mit Tastendruck),
-3. warnt, wenn `sv_licenseKey` noch `changeme` ist,
+3. warnt, wenn `sv_licenseKey` noch `changeme` ist oder `mysql_connection_string` fehlt,
 4. wechselt nach `server-data\` und startet `..\artifacts\FXServer.exe +set onesync on +exec server.cfg`.
 
 `+set onesync on` steht bewusst vor `+exec server.cfg`: so ist OneSync an, ohne dass eine cfg-Datei die Zeile
@@ -247,7 +277,7 @@ eigenen Heimnetz ist das vertretbar, in fremden Netzen nicht.
 ### Über das Internet
 
 1. Anschluss prüfen: Die IPv4-Adresse, die dein Router für die Internetverbindung hat, steht in seiner
-   Oberfläche (bei der FRITZ!Box auf der Übersichtsseite). Vergleiche sie mit der IPv4, die eine
+   Oberfläche (bei vielen Routern auf der Übersichtsseite). Vergleiche sie mit der IPv4, die eine
    "Wie ist meine IP"-Seite meldet (IPv4 vergleichen, nicht IPv6).
    - Gleich: Eine Portweiterleitung ist möglich, weiter mit Schritt 2.
    - Keine IPv4 im Router oder eine Adresse aus `100.64.0.0/10`: DS-Lite bzw. CGNAT (in Deutschland bei vielen
@@ -282,6 +312,9 @@ dort deaktiviert. Freunde brauchen dann immer die direkte Adresse per `connect`.
 - Git-Ressourcen aus `resources.txt` aktualisieren: `install.bat -UpdateResources`.
 - Alle Fremd-Ressourcen und `[cfx-default]` frisch holen: `install.bat -ForceResources`.
 - Eigener Code: `git pull`, dann bei Bedarf `install.bat -UpdateResources`.
+- Neue oder geänderte SQL-Dateien importiert `install.bat` in Schritt 4 automatisch, einzeln geht es mit
+  `setup-database.bat` (Stand anzeigen: `setup-database.bat -DryRun`).
+- zip-Ressourcen mit `releases/latest` (z. B. ox_lib, oxmysql) aktualisiert nur `install.bat -ForceResources`.
 
 Während eines Artifact-Updates ist `artifacts\` kurz leer. Schlägt das Entpacken fehl, einfach
 `install.bat -ForceArtifacts` erneut ausführen. Bleibt nach einem abgebrochenen Lauf der Ordner
@@ -290,26 +323,48 @@ Während eines Artifact-Updates ist `artifacts\` kurz leer. Schlägt das Entpack
 Nur wenn inzwischen wieder ein `artifacts\txData` entstanden ist, bricht `install.ps1` mit
 `Es existiert bereits '...\artifacts.txData.tmp'` ab; dann beide Ordner von Hand zusammenführen.
 
-## Datenbank lokal (optional)
+## Datenbank (MariaDB)
 
-Nur nötig für oxmysql und Frameworks. Zwei Wege:
+Qbox braucht MariaDB ab 10.9 (empfohlen 12.3 LTS). Kurzfassung, alle Details in [datenbank.md](datenbank.md):
 
-- MariaDB nativ: `winget install --id MariaDB.Server -e`. Der Installer fragt nach einem root-Passwort und
-  richtet den Dienst `MariaDB` ein. Client: `"C:\Program Files\MariaDB 12.3\bin\mariadb.exe"` (Versionsnummer
-  im Pfad anpassen). Datenbank und User anlegen, siehe [frameworks.md](frameworks.md).
-- Docker Desktop: nur den `db`-Service aus `docker/docker-compose.yml` starten. Vorher `cp .env.example .env`
-  (bzw. `copy .env.example .env`) und darin `MYSQL_ROOT_PASSWORD`, `MYSQL_PASSWORD` sowie bei Bedarf
-  `MYSQL_DATABASE`/`MYSQL_USER` setzen (die Compose-Datei bricht ohne diese Werte ab), in der Compose-Datei die
-  Zeilen `ports: - "127.0.0.1:3306:3306"` beim `db`-Service einkommentieren und aus dem Repo-Root starten:
+1. `scripts\windows\setup-database.bat -InstallMariaDB` startet per winget den MariaDB-Assistenten. Root-Passwort
+   setzen und merken, "Install as service" mit Dienstname `MariaDB` lassen, Port 3306, remote root access aus.
+2. `install.bat` muss schon gelaufen sein, damit die SQL-Dateien unter `[vendor]` liegen.
+3. `scripts\windows\setup-database.bat -Create -Import` in einem offenen Konsolenfenster: fragt einmal
+   `MariaDB-Root-Passwort`, legt die Datenbank `fivem` sowie die User `fivem@localhost` und `fivem@127.0.0.1` an,
+   schreibt `set mysql_connection_string "mysql://fivem:<passwort>@127.0.0.1:3306/fivem?charset=utf8mb4"` in
+   `server-data\secrets.cfg`, zeigt ein neues Passwort einmal gelb an (nicht bei umgeleiteter Ausgabe, dann steht
+   es nur in `secrets.cfg`) und importiert die SQL-Dateien aus
+   `server-data\database.txt`. Gleichwertig: `install.bat -SetupDatabase`.
+4. Später: `setup-database.bat` ohne Parameter (auch Doppelklick) importiert nur ausstehende Dateien,
+   `setup-database.bat -DryRun` zeigt den Stand, `install.bat` importiert in Schritt 4 automatisch.
 
-  ```
-  docker compose --env-file .env -f docker/docker-compose.yml up -d db
-  ```
+`setup-database.bat` reicht alle Parameter an `setup-database.ps1` durch und meldet am Ende `[OK] Datenbank-Schritt
+abgeschlossen.` (Exit 0), `[FEHLER] Datenbank nicht erreichbar, Anmeldung fehlgeschlagen oder MariaDB zu alt.`
+(Exit 2), `[FEHLER] SQL-Import fehlgeschlagen.` (Exit 3) oder `[FEHLER] Abbruch mit Exit-Code N.` (Exit 1).
 
-  Datenbank und User kommen aus `MYSQL_DATABASE`, `MYSQL_USER`, `MYSQL_PASSWORD` der `.env`. Verbindungs-String
-  dann mit Host `localhost`.
+| Parameter                | Bedeutung                                                                                               |
+|--------------------------|---------------------------------------------------------------------------------------------------------|
+| `-InstallMariaDB`        | MariaDB Server per winget installieren (interaktiver Assistent), falls noch kein `mariadb.exe` gefunden wird. |
+| `-Create`                | Datenbank und User anlegen, `mysql_connection_string` schreiben. Fragt das Root-Passwort ab (nicht per Pipe möglich). |
+| `-ResetPassword`         | Nur mit `-Create`: vorhandenem User ein neues Passwort geben.                                           |
+| `-DbName <name>`         | Nur mit `-Create`, Standard `fivem`.                                                                    |
+| `-DbUser <name>`         | Nur mit `-Create`, Standard `fivem`.                                                                    |
+| `-Port <n>`              | Nur mit `-Create`, Standard 3306 bzw. der Port des vorhandenen Strings. Weicht ein angegebener Wert vom Port eines vorhandenen TCP-Strings in `secrets.cfg` ab, Abbruch mit Exit 1 (außer mit `-ResetPassword`). |
+| `-Import`                | Ausstehende SQL-Dateien importieren (Standard ohne andere Aktion).                                     |
+| `-MarkApplied`           | Ausstehende oder geänderte Dateien als importiert eintragen, ohne sie auszuführen.                     |
+| `-Only <pfad>[,<pfad>]`  | Import, MarkApplied und DryRun auf diese Pfade aus `database.txt` beschränken.                         |
+| `-DryRun`                | Nur anzeigen, nichts ändern.                                                                            |
+| `-Check`                 | Nur `database.txt` prüfen, keine Datenbank (nur mit `-ManifestPath`).                                   |
+| `-MariaDbBin <pfad>`     | Ordner mit `mariadb.exe` oder Pfad zu `mariadb.exe`.                                                    |
+| `-ManifestPath <datei>`  | Anderes SQL-Manifest, Standard `<repo>\server-data\database.txt`.                                       |
+| `-SecretsPath <datei>`   | Andere `secrets.cfg`, Standard `<repo>\server-data\secrets.cfg`.                                        |
 
-Grafischer Client: `winget install --id HeidiSQL.HeidiSQL -e`.
+Exit-Codes von `setup-database.ps1`: 0 ok (auch mit Warnungen), 1 Abbruch vor der Datenbankarbeit, 2 Datenbank nicht
+erreichbar, Anmeldung fehlgeschlagen oder MariaDB zu alt, 3 SQL-Fehler.
+
+Grafischer Client: `winget install --id HeidiSQL.HeidiSQL -e`, Verbindung `127.0.0.1:3306` mit dem User aus
+`secrets.cfg`.
 
 ## Fehlerbilder
 
@@ -329,3 +384,14 @@ Grafischer Client: `winget install --id HeidiSQL.HeidiSQL -e`.
 | `## [txAdmin CFG validator]` vor einer `onesync`-Zeile                  | txAdmin verwaltet OneSync selbst. Zeile nicht wieder einkommentieren; `start-direct.bat` übergibt `+set onesync on` als Startargument. |
 | `Es existiert bereits '...\artifacts.txData.tmp'`                       | Rest eines abgebrochenen Laufs und daneben ein neues `artifacts\txData`: beide Ordner von Hand zusammenführen, siehe Abschnitt Aktualisieren. |
 | Manifest-Eintrag `git clone fehlgeschlagen`                             | `[ref]` muss Branch oder Tag sein, kein Commit-Hash. URL prüfen, private Repos brauchen Zugangsdaten.     |
+| `In secrets.cfg fehlt mysql_connection_string` (install.bat, start.bat)  | Datenbank noch nicht eingerichtet: `setup-database.bat -InstallMariaDB`, dann `setup-database.bat -Create -Import`. |
+| `MariaDB nicht gefunden. Installieren: setup-database.bat -InstallMariaDB` | MariaDB installieren. Schon installiert: neues Terminal öffnen oder `-MariaDbBin "C:\Program Files\MariaDB 12.3\bin"`. |
+| `MariaDB ... ist zu alt. Qbox braucht mindestens 10.9`                  | Alte MariaDB-Version läuft auf Port 3306. Datenbank sichern, alte Version deinstallieren, `setup-database.bat -InstallMariaDB`. Siehe [datenbank.md](datenbank.md#welche-version). |
+| `Datenbank nicht erreichbar oder Anmeldung fehlgeschlagen (127.0.0.1:3306, User fivem)` | Dienst läuft nicht (`net start MariaDB` als Administrator) oder Passwort passt nicht (`setup-database.bat -Create -ResetPassword`). |
+| `secrets.cfg nutzt Port 3306, -Port ist 3307`                           | `-Port` weglassen bzw. den Port aus `secrets.cfg` angeben, oder mit `setup-database.bat -Create -Port 3307 -ResetPassword` einen neuen String schreiben. |
+| oxmysql meldet beim Start Verbindungsfehler                             | `setup-database.bat -DryRun` testet dieselben Zugangsdaten. Passwort nur `A-Z a-z 0-9`, Schlüssel `database=` klein, MariaDB-Dienst läuft? |
+| `[FEHLER] SQL-Import fehlgeschlagen` / `FEHLER beim Import von ...`     | Meldung von MariaDB lesen, Ursache beheben, erneut starten. Siehe [datenbank.md](datenbank.md#wenn-ein-import-fehlschlägt). |
+| `... fehlt. Ist die Ressource installiert (install-resources)?`         | `install.bat` ausführen (bei kaputten Ressourcen `-ForceResources`), dann `setup-database.bat`.         |
+| `-Create fragt das MariaDB-Root-Passwort ab und braucht dafür eine Konsole ...` | `setup-database.bat -Create` direkt in einem Konsolenfenster starten, nicht per Pipe oder Umleitung. |
+| `[WARNUNG] Installation abgeschlossen, aber Ressourcen oder Datenbank sind unvollstaendig` (Exit 2) | In der Zusammenfassung stehen `Ressourcen` und `Datenbank`. Bei `unvollständig (setup-database.ps1 Exit-Code N)` den Code in [datenbank.md](datenbank.md#exit-codes) nachschlagen. |
+| Spieler wird abgewiesen, Meldung mit Request ID                         | License Allowlist ist an: Anfrage in txAdmin freigeben ([linux-server.md](linux-server.md#nur-freunde-zulassen-license-allowlist)). |

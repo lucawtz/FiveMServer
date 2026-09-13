@@ -11,10 +11,16 @@
          git <ziel> <url> [ref]   -> git clone --depth 1 [--branch ref] nach server-data\resources\<ziel>
          zip <ziel> <url>         -> Download + Entpacken nach server-data\resources\<ziel>
                                      (hat das Archiv genau EINEN Oberordner, wird dessen Inhalt zu <ziel>)
-       <ziel> ist relativ zu server-data\resources\ und darf Klammer-Ordner enthalten, z.B. [vendor]/oxmysql.
-       Vorhandene Ziele werden übersprungen, außer mit -Update (git pull --ff-only bei Git-Zielen)
+         copy <quelle> <ziel>     -> kopiert eine Datei oder einen Ordner innerhalb von server-data\resources\
+                                     (z.B. aus einer weiter oben installierten Zeile in eine andere Ressource)
+       <ziel> und <quelle> sind relativ zu server-data\resources\ und dürfen Klammer-Ordner enthalten,
+       z.B. [vendor]/[ox]/oxmysql. Einträge laufen in der Reihenfolge der Datei.
+       Vorhandene git/zip-Ziele werden übersprungen, außer mit -Update (git pull --ff-only bei Git-Zielen)
        oder -Force (Ziel löschen und neu klonen bzw. neu herunterladen).
-    Voraussetzung: git im PATH (winget install Git.Git).
+       copy läuft bei JEDEM Aufruf, unabhängig von -Update und -Force: eine Datei wird nur geschrieben,
+       wenn sie sich unterscheidet (Größe + SHA256), ein Ordner wird komplett ersetzt (ohne .git).
+       Eigene Änderungen am Ziel gehen dabei verloren.
+    Voraussetzung: git im PATH (winget install Git.Git), nicht nötig für -Check.
 
 .PARAMETER Update
     Führt bei vorhandenen Git-Zielen 'git pull --ff-only' aus. Zip-Ziele bleiben unverändert.
@@ -25,22 +31,31 @@
 .PARAMETER ManifestPath
     Alternativer Pfad zum Manifest. Standard: <repo>\server-data\resources.txt
 
+.PARAMETER Check
+    Prüft nur das Manifest (Syntax, Pfade, Reihenfolge der copy-Zeilen). Kein Netzwerk, kein git,
+    nichts wird installiert. Eine copy-Quelle bzw. der Zielordner unter [vendor]/ oder [cfx-default]/
+    muss von einer FRÜHEREN git/zip-Zeile installiert werden. Exit-Code 0 = gültig, 1 = Fehler.
+
 .EXAMPLE
     .\install-resources.ps1
 .EXAMPLE
     .\install-resources.ps1 -Update
 .EXAMPLE
+    .\install-resources.ps1 -Check
+.EXAMPLE
     .\install-resources.ps1 -Force -ManifestPath C:\temp\meine-resources.txt
 
 .NOTES
-    Exit-Codes: 0 = ok, 1 = Abbruch (z.B. git fehlt, Klonen von cfx-server-data fehlgeschlagen),
-    2 = fertig, aber mindestens ein Manifest-Eintrag ist fehlgeschlagen.
+    Exit-Codes: 0 = ok, 1 = Abbruch (z.B. git fehlt, Klonen von cfx-server-data fehlgeschlagen,
+    mit -Check: Manifest fehlt oder ist ungültig), 2 = fertig, aber mindestens ein Manifest-Eintrag
+    ist fehlgeschlagen.
 #>
 [CmdletBinding()]
 param(
     [switch]$Update,
     [switch]$Force,
-    [string]$ManifestPath
+    [string]$ManifestPath,
+    [switch]$Check
 )
 
 Set-StrictMode -Version 2.0
@@ -220,15 +235,25 @@ function Install-BaseResources([string]$ResourcesDir, [bool]$ForceInstall) {
 # ---------------------------------------------------------------------------
 function ConvertTo-SafeTarget([string]$Target) {
     # Gibt den normalisierten relativen Zielpfad zurück oder $null, wenn er unzulässig ist.
+    # Trennzeichen ist das des Systems (Windows: '\'), damit die Pfade direkt mit Join-Path funktionieren.
     if ([string]::IsNullOrWhiteSpace($Target)) { return $null }
-    $normalized = $Target.Trim().Replace('/', '\').TrimEnd('\')
+    $sep = [string][System.IO.Path]::DirectorySeparatorChar
+    if ($Target.Trim().StartsWith('/') -or $Target.Trim().StartsWith('\')) { return $null }
+    $normalized = $Target.Trim().Replace('/', $sep).Replace('\', $sep).TrimEnd($sep.ToCharArray())
     if ($normalized -eq '') { return $null }
     if ([System.IO.Path]::IsPathRooted($normalized)) { return $null }
     if ($normalized.Contains(':')) { return $null }
-    foreach ($segment in ($normalized -split '\\')) {
+    foreach ($segment in ($normalized -split [regex]::Escape($sep))) {
         if ($segment -eq '' -or $segment -eq '.' -or $segment -eq '..') { return $null }
     }
     return $normalized
+}
+
+function Test-PathInside([string]$Path, [string]$Base) {
+    # true, wenn $Path gleich $Base ist oder darunter liegt (ohne Groß-/Kleinschreibung, wie das Dateisystem unter Windows)
+    $sep = [string][System.IO.Path]::DirectorySeparatorChar
+    if ([string]::Equals($Path, $Base, [System.StringComparison]::OrdinalIgnoreCase)) { return $true }
+    return $Path.StartsWith($Base + $sep, [System.StringComparison]::OrdinalIgnoreCase)
 }
 
 function Read-Manifest([string]$Path) {
@@ -247,6 +272,7 @@ function Read-Manifest([string]$Path) {
             Line    = $lineNo
             Type    = $type
             Target  = $null
+            Source  = $null
             Url     = $null
             Ref     = $null
             Error   = $null
@@ -270,14 +296,29 @@ function Read-Manifest([string]$Path) {
                 $entry.Target = ConvertTo-SafeTarget $tokens[1]
                 $entry.Url = $tokens[2]
             }
+        } elseif ($type -eq 'copy') {
+            if ($tokens.Count -lt 3) {
+                $entry.Error = "Erwartet: copy <quelle> <ziel>"
+            } else {
+                if ($tokens.Count -gt 3) { Write-Warn "Zeile ${lineNo}: zu viele Felder, ignoriere Rest '$($tokens[3..($tokens.Count - 1)] -join ' ')'" }
+                $entry.Source = ConvertTo-SafeTarget $tokens[1]
+                $entry.Target = ConvertTo-SafeTarget $tokens[2]
+                if (-not $entry.Source) {
+                    $entry.Error = "Unzulässige Quelle '$($tokens[1])' (muss relativ sein, ohne '..' und ohne Laufwerk)"
+                } elseif (-not $entry.Target) {
+                    $entry.Error = "Unzulässiges Ziel '$($tokens[2])' (muss relativ sein, ohne '..' und ohne Laufwerk)"
+                } elseif ((Test-PathInside $entry.Source $entry.Target) -or (Test-PathInside $entry.Target $entry.Source)) {
+                    $entry.Error = "Quelle und Ziel überschneiden sich"
+                }
+            }
         } else {
-            $entry.Error = "Unbekannter Typ '$($tokens[0])' (erlaubt: git, zip)"
+            $entry.Error = "Unbekannter Typ '$($tokens[0])' (erlaubt: git, zip, copy)"
         }
 
         if (-not $entry.Error -and -not $entry.Target) {
             $entry.Error = "Unzulässiges Ziel '$($tokens[1])' (muss relativ sein, ohne '..' und ohne Laufwerk)"
         }
-        if (-not $entry.Error -and -not ($entry.Url -match '^https?://')) {
+        if (-not $entry.Error -and $type -ne 'copy' -and -not ($entry.Url -match '^https?://')) {
             $entry.Error = "URL muss mit http:// oder https:// beginnen: '$($entry.Url)'"
         }
         $entries += $entry
@@ -361,6 +402,105 @@ function Install-ZipEntry($Entry, [string]$TargetPath, [bool]$DoForce) {
     }
 }
 
+function Test-SameFileContent([string]$PathA, [string]$PathB) {
+    # Gleiche Größe und gleicher SHA256-Hash
+    if ((New-Object System.IO.FileInfo $PathA).Length -ne (New-Object System.IO.FileInfo $PathB).Length) { return $false }
+    $hashA = (Get-FileHash -LiteralPath $PathA -Algorithm SHA256).Hash
+    $hashB = (Get-FileHash -LiteralPath $PathB -Algorithm SHA256).Hash
+    return ($hashA -eq $hashB)
+}
+
+function Install-CopyEntry($Entry, [string]$SourcePath, [string]$TargetPath) {
+    # copy läuft bei jedem Aufruf (unabhängig von -Update/-Force). Rückgabe: 'installiert' oder 'übersprungen'.
+    $sourceIsFile = [System.IO.File]::Exists($SourcePath)
+    $sourceIsDir = [System.IO.Directory]::Exists($SourcePath)
+    if (-not $sourceIsFile -and -not $sourceIsDir) {
+        throw "Quelle fehlt: $($Entry.Source) (steht die Zeile, die sie installiert, weiter oben?)"
+    }
+    $parent = [System.IO.Path]::GetDirectoryName($TargetPath)
+    if (-not [System.IO.Directory]::Exists($parent)) {
+        $sep = [string][System.IO.Path]::DirectorySeparatorChar
+        $relativeParent = $parent
+        $cut = $Entry.Target.LastIndexOf($sep)
+        if ($cut -gt 0) { $relativeParent = $Entry.Target.Substring(0, $cut) }
+        throw "Zielordner fehlt: $relativeParent (ist die Ressource installiert?)"
+    }
+
+    if ($sourceIsFile) {
+        if ([System.IO.Directory]::Exists($TargetPath)) { throw "Ziel ist ein Ordner, Quelle eine Datei" }
+        if ([System.IO.File]::Exists($TargetPath) -and (Test-SameFileContent $SourcePath $TargetPath)) {
+            return 'übersprungen'
+        }
+        [System.IO.File]::Copy($SourcePath, $TargetPath, $true)
+        return 'installiert'
+    }
+
+    if ([System.IO.File]::Exists($TargetPath)) { throw "Ziel ist eine Datei, Quelle ein Ordner" }
+    # Erst komplett in einen temporären Ordner kopieren: scheitert das, bleibt das alte Ziel unangetastet.
+    $tmp = New-TempDirectory 'fivem-copy'
+    try {
+        $staging = Join-Path $tmp 'copy'
+        New-Directory $staging
+        foreach ($file in [System.IO.Directory]::GetFiles($SourcePath)) {
+            $name = [System.IO.Path]::GetFileName($file)
+            [System.IO.File]::Copy($file, (Join-Path $staging $name), $true)
+        }
+        foreach ($dir in [System.IO.Directory]::GetDirectories($SourcePath)) {
+            $name = [System.IO.Path]::GetFileName($dir)
+            if ($name -eq '.git') { continue }
+            Copy-Tree -Source $dir -Destination (Join-Path $staging $name)
+        }
+        Remove-Tree $TargetPath
+        Copy-Tree -Source $staging -Destination $TargetPath
+        return 'installiert'
+    } finally {
+        try { Remove-Tree $tmp } catch { Write-Warn "Temporärer Ordner konnte nicht gelöscht werden: $tmp" }
+    }
+}
+
+function Test-ManagedPath([string]$Path) {
+    # Pfade, die Skripte installieren (nicht in Git): [vendor]\... und [cfx-default]\...
+    $sep = [string][System.IO.Path]::DirectorySeparatorChar
+    return ($Path.StartsWith("[vendor]$sep", [System.StringComparison]::OrdinalIgnoreCase) -or
+            $Path.StartsWith("[cfx-default]$sep", [System.StringComparison]::OrdinalIgnoreCase))
+}
+
+function Test-ManifestOrder($Entries) {
+    # Nur für -Check: copy-Pfade unter [vendor]\ oder [cfx-default]\ müssen von einer FRÜHEREN git/zip-Zeile
+    # installiert werden. Quelle: gleich einem früheren Ziel oder darunter. Ziel: Elternordner gleich einem
+    # früheren Ziel oder darunter. Andere Pfade (z.B. [local]\...) werden nicht geprüft.
+    # Rückgabe: Liste von Fehlermeldungen.
+    $sep = [string][System.IO.Path]::DirectorySeparatorChar
+    $errors = @()
+    $installedTargets = @()
+    foreach ($entry in $Entries) {
+        if ($entry.Error) { continue }
+        if ($entry.Type -eq 'git' -or $entry.Type -eq 'zip') {
+            $installedTargets += $entry.Target
+            continue
+        }
+        if ($entry.Type -ne 'copy') { continue }
+        $toCheck = @()
+        if (Test-ManagedPath $entry.Source) { $toCheck += $entry.Source }
+        if (Test-ManagedPath $entry.Target) {
+            $cut = $entry.Target.LastIndexOf($sep)
+            if ($cut -gt 0) { $toCheck += $entry.Target.Substring(0, $cut) } else { $toCheck += '' }
+        }
+        $ok = $true
+        foreach ($path in $toCheck) {
+            $covered = $false
+            foreach ($base in $installedTargets) {
+                if ($path -ne '' -and (Test-PathInside $path $base)) { $covered = $true; break }
+            }
+            if (-not $covered) { $ok = $false }
+        }
+        if (-not $ok) {
+            $errors += "Zeile $($entry.Line): copy-Quelle/-Ziel wird von keiner früheren git/zip-Zeile installiert"
+        }
+    }
+    return ,$errors
+}
+
 # ---------------------------------------------------------------------------
 # Hauptprogramm
 # ---------------------------------------------------------------------------
@@ -379,6 +519,36 @@ $env:GIT_TERMINAL_PROMPT = '0'
 $env:GCM_INTERACTIVE = 'Never'
 $baseSummary = 'nicht ausgeführt'
 $results = @()
+
+if ($Check) {
+    # Nur das Manifest prüfen: kein Netzwerk, kein git, keine Basis-Ressourcen.
+    try {
+        Write-Host ""
+        Write-Host "FiveM Server - Manifest prüfen: $ManifestPath" -ForegroundColor White
+        if ($Update -or $Force) { Write-Warn "-Update und -Force werden mit -Check ignoriert." }
+        if (-not (Test-Path -LiteralPath $ManifestPath -PathType Leaf)) {
+            Write-Fail "Manifest nicht gefunden: $ManifestPath"
+            exit 1
+        }
+        $entries = Read-Manifest $ManifestPath
+        $problems = @()
+        foreach ($entry in $entries) {
+            if ($entry.Error) { $problems += "Zeile $($entry.Line): $($entry.Error)" }
+        }
+        $problems += Test-ManifestOrder $entries
+        foreach ($problem in $problems) { Write-Fail $problem }
+        if ($problems.Count -gt 0) {
+            Write-Fail "Manifest ist ungültig ($($problems.Count) Fehler)."
+            exit 1
+        }
+        $copyCount = @($entries | Where-Object { $_.Type -eq 'copy' }).Count
+        Write-Ok "Manifest ist gültig ($($entries.Count) Einträge, davon $copyCount copy)."
+        exit 0
+    } catch {
+        Write-Fail "Prüfung abgebrochen: $($_.Exception.Message)"
+        exit 1
+    }
+}
 
 try {
     Write-Host ""
@@ -411,6 +581,17 @@ try {
             if ($entry.Error) {
                 Write-Fail "${label}: $($entry.Error)"
                 $message = $entry.Error
+            } elseif ($entry.Type -eq 'copy') {
+                $copyLabel = "[copy] $($entry.Source) -> $($entry.Target)"
+                Write-Info $copyLabel
+                try {
+                    $status = Install-CopyEntry -Entry $entry -SourcePath (Join-Path $resourcesDir $entry.Source) -TargetPath (Join-Path $resourcesDir $entry.Target)
+                    Write-Ok "${copyLabel}: $status"
+                } catch {
+                    $status = 'fehlgeschlagen'
+                    $message = $_.Exception.Message
+                    Write-Fail "${copyLabel}: $message"
+                }
             } else {
                 $refText = ''
                 if ($entry.Ref) { $refText = " @ $($entry.Ref)" }
