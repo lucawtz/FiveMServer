@@ -16,6 +16,7 @@ Erledigtes mit `[x]` abhaken. Punkte mit **Entscheidung** brauchen zuerst eine A
 | M4          | Erstes eigenes Restaurant spielbar (Prototyp: Burger Shot)            | 5      |
 | M5          | Umzug auf den Linux-VPS, regelmäßig spielen                           | 7      |
 | M6          | Kriminalität ausbauen (Geldwäsche, Labore, Waffenhandel), weitere Firmen, Inhalte | 5, 6, 8 |
+| M7          | Freizeit: Rennen, Verleih, Kino, Arcade, Paintball und weitere kostenlose Minispiele | 9 |
 
 M5 lässt sich vorziehen, wenn Freunde über das Internet nicht auf den PC kommen (DS-Lite/CGNAT, siehe
 [windows-lokal.md](windows-lokal.md#freunde-verbinden)). Entwickeln geht weiter lokal.
@@ -273,9 +274,18 @@ Notiert von Luca beim ersten Einloggen, Ursachen noch nicht untersucht.
 
 - [ ] [Offene Entscheidungen](#offene-entscheidungen) beantworten
 - [ ] Rezept-Fehler beheben: Item `markedbills` fehlt ([Phase 6](#fehler-und-lücken))
+- [ ] **Regelverstoß beheben:** `scully_emotemenu` streamt Props einer echten Marke (Pizza Hut): `bzzz_pizzahut_cup_a`,
+      `bzzz_pizzahut_menu_a` und `bzzz_pizzahut_box_a` samt `bzzz_package_pizzahut.ytyp` in `stream/[Props]/[BzZzi]`,
+      genutzt von drei Emotes in `shared/data/emotes/prop_emotes.lua`, geladen über eine `data_file`-Zeile in
+      `fxmanifest.lua`. Die Ressource kommt per git von `main`, deshalb Weg C: eigener Fork mit festem Stand, dort die
+      drei Emotes, die Dateien und die `data_file`-Zeile entfernen ([inhalte-regeln.md](inhalte-regeln.md))
+- [ ] **Sport- und Supersportwagen sind nicht kaufbar:** In `qbx_vehicleshop/config/shared.lua` ist der Beispiel-Händler
+      `luxury` auskommentiert, unter `vehicles.models` sind aber viele Modelle an ihn gebunden (z. B. `banshee`,
+      `comet2`, `elegy`). Beheben zusammen mit dem Luxus-Autohaus in [Phase 4](#phase-4-realismus-grundsystem)
 - [ ] Ressourcen entfernen, die nach dem Test in Phase 1 nicht passen. Die kriminellen Ressourcen bleiben
-      (Entscheidung vom 13.09.2026). Mögliche Kandidaten: `qbx_fireworks`, `qbx_diving`/`qbx_divegear`, eine der
-      beiden Renn-Ressourcen `qbx_lapraces` und `qbx_streetraces`.
+      (Entscheidung vom 13.09.2026). Mögliche Kandidaten: `qbx_fireworks` und, falls in
+      [Phase 9](#phase-9-freizeit-und-minispiele) `cw-racingapp` gewählt wird, `qbx_lapraces`. `qbx_diving`/`qbx_divegear`
+      und `qbx_streetraces` sind dort als Freizeit eingeplant.
       So geht's: Zeile in `resources.txt` löschen, Ordner unter `[vendor]` von Hand löschen (kein Lauf entfernt
       ihn), bei SQL-Dateien vorher `setup-database --dry-run` prüfen. Die Tabellen bleiben in der Datenbank.
 - [ ] Stand festhalten, bevor Anpassungen beginnen: Tags bzw. feste Release-URLs statt `main` und
@@ -306,7 +316,8 @@ Notiert von Luca beim ersten Einloggen, Ursachen noch nicht untersucht.
 | [ ] Startgeld | `qbx_core/config/server.lua`: `moneyTypes = { cash = 500, bank = 5000, crypto = 0 }`, **Entscheidung** Wirtschaft |
 | [ ] Gehälter | Intervall `paycheckTimeout` (10 min) und `paycheckSociety` in `qbx_core/config/server.lua`, Beträge pro Rang in `shared/jobs.lua` |
 | [ ] Preise | Shops in `ox_inventory/data/shops.lua` (Weg B), Fahrzeuge in `qbx_core/shared/vehicles.lua` (Weg C), Sprit in der Config von `ox_fuel` |
-| [ ] Autohaus-Sortiment | nur GTA-Fahrzeuge, Kategorien und Händler-Standorte in `qbx_vehicleshop/config/shared.lua` (Weg C, Fork) |
+| [ ] Autohaus-Sortiment | nur GTA-Fahrzeuge, Kategorien und Händler-Standorte in `qbx_vehicleshop/config/shared.lua` (Weg C, Fork). Den Händler `luxury` aktivieren (Sport- und Supersportwagen, siehe Phase 2) und als Luxus-Autohaus in den Vinewood Car Club legen: `bob74_ipl` lädt den Showroom schon (`MercenariesClub`, 1202, -3251, -50, unter der Karte), Eingang per Teleport aus einer eigenen Ressource (Weg D). Die auskommentierte Vorlage ist `type = 'managed'` (Kauf nur mit einem Spieler im Job `cardealer`) und hat Koordinaten in Rockford Hills: auf `free-use` umstellen, `zone` und `showroomVehicles` in den Club legen, `vehicleSpawns` und `returnLocation` draußen an die Oberfläche. Showroom-Fahrzeuge unterstützt `qbx_vehicleshop` bereits |
+| [ ] Fehlende Fahrzeuge | Die Autos aus "A Safehouse in the Hills" fehlen in `qbx_core/shared/vehicles.lua` (901 Einträge in v1.24.0), obwohl Build 3751 sie enthält. Nachtragen per Override `[local]/[overrides]/qbx_core_vehicles.lua` mit `copy`-Zeile wie bei `qbx_core_jobs.lua`, Modellnamen vorher im Spiel prüfen. Das LS Car Meet (-2000, 1113, -25, lädt `bob74_ipl`) eignet sich als Treffpunkt für Autotreffen |
 | [ ] Fahrverhalten | eigene Ressource `[local]/handling` mit angepasster `handling.meta` (`data_file 'HANDLING_FILE'`), klein genug für Git (Weg D) |
 | [ ] Schaden, Gurt | Configs von `vehiclehandler` und `qbx_seatbelt` testen und abstimmen |
 | [ ] Wetter und Uhrzeit | Tageslänge und Wetterwechsel in `Renewed-Weathersync` |
@@ -552,12 +563,68 @@ Nur Lore-Marken und eigene Designs, keine echten Fahrzeuge oder Marken, auch nic
 - [ ] Erst die Spielfahrzeuge ausschöpfen: Sortiment pro Händler kuratieren, Handling anpassen (Phase 4)
 - [ ] Zusätzliche lore-freundliche Fahrzeuge nur mit Erlaubnis zur Nutzung, Größe und Texturen prüfen
 - [ ] Zusätzliche Innenräume (Restaurants, Wache, Werkstatt) nach Bedarf aus Phase 5 und 6
+- [ ] **Villen und Penthouses als Immobilien:** `bob74_ipl` lädt auf Build 3751 schon die drei Villen aus
+      "A Safehouse in the Hills" (Vinewood Residence, Richman Villa, Tongva Estate), acht GTA-Online-Hanghäuser, die
+      Penthouses im Eclipse Tower und Michaels Villa. Kostenlos, keine zusätzlichen Assets. Dafür Innenraum-Einträge in
+      `qbx_properties/config/shared.lua` (Weg C, mit dem Fork aus Befund 3 zusammenlegen), danach legt der Makler
+      (Job `realestate`) sie per `/createproperty` mit Preis, optionaler Miete und Garagenpunkt an. Grenze:
+      `qbx_properties` kennt keine Instanz, deshalb pro Villa nur ein Besitzer
+- [ ] Kostenloses Zusatz-Haus: Vinewood House MLO von Horizon Development (MIT, etwa 11 MB, per git-Zeile aus
+      https://github.com/Bazsi0513/vinewood_house_mlo, ersetzt das Haus bei -1531, 434, 109). Texturen im Spiel auf Marken prüfen
 - [ ] Eigene Kleidung (Firmen-Outfits mit eigenen Logos) über illenium-appearance
 - [ ] **Weg E festlegen**, bevor die erste große Datei kommt. Git scheidet aus (GitHub blockt Dateien über
       100 MiB, LFS hat Kontingente). Optionen: von Hand bzw. per `rsync` nach `[vendor]` (gitignored, Liste der
       Pakete in einer committeten Datei), oder zip-Zeile auf einen eigenen Download-Speicher
 - [ ] Bezahlte Ressourcen mit Asset Escrow sind an den Cfx.re-Account gebunden, dem der Lizenzschlüssel gehört;
       vor einem Kauf klären, welcher Account den Server-Key besitzt
+
+## Phase 9: Freizeit und Minispiele
+
+Entschieden am 13.09.2026: **Minispiele nur kostenlos.** Grundlage sind installierte Ressourcen, GTA-Orte und eigene
+Ressourcen in `[local]` (Weg D). Fremden Code nur mit freier Lizenz übernehmen (z. B. GPL-3.0, MIT), Repos ohne Lizenz
+nur als Ideenvorlage. Keine fremden Filme, Musik oder Spiele ([inhalte-regeln.md](inhalte-regeln.md)).
+
+Reihenfolge: Rennen und Verleih, Kino und Arcade, Gym und Fallschirmsprung, Paintball und Derby, Casino.
+
+- [ ] **Rennen:** `qbx_lapraces` ist installiert, Start und Beitritt laufen aber über Events einer Handy-Racing-App, die
+      fehlt. Kleines `ox_lib`-Menü bauen (Weg D) und in `config.lua` den Platzhalter `PUTCID` unter `Config.WhitelistedCreators`
+      ersetzen (git-Ressource von `main`, also Weg C: fester Stand bzw. Fork). Alternative: `cw-racingapp` (GPL-3.0, Qbox-Bridge, Zeitrennen und Ranglisten, braucht
+      `cw-performance`), nur eins von beiden. `qbx_streetraces` (Bargeld-Einsatz) braucht mindestens zwei Spieler.
+      Allein spielbar: Zeitrennen
+- [ ] **Kart- und Jetski-Verleih:** eigene Ressource mit Station per `ox_target`, Fahrzeug gegen Gebühr spawnen (Karts
+      `veto`/`veto2`, Jetskis `seashark`), nach Rückgabe oder Ablauf der Zeit löschen, Strecken über das Rennsystem.
+      Allein spielbar
+- [ ] **Kino:** eigene Ressource `[local]/kino`: Kinosaal `v_cinema` per `RequestIpl` laden, Eingang per `ox_target`, auf
+      der Leinwand die Rockstar-Kinoplaylists (z. B. `PL_CINEMA_CARTOON`, `PL_CINEMA_ACTION`), für alle im Saal
+      gleichzeitig starten. Vorlage zum Lesen: `davedumas0/fiveM-movies` (GPL-3.0, von 2020, nicht gepflegt). Keine
+      YouTube- oder Link-Player. Allein spielbar
+- [ ] **Arcade:** Diamond Arcade, lädt `bob74_ipl` schon (2732, -380, -50): Eingang per Teleport, `ox_target` auf die
+      Automaten, Spiele über `lib.skillCheck` oder eigene HTML-Spiele, Tickets als Item gegen kleine Preise. Vorlage:
+      `thommie-arcade` (GPL-3.0, QBCore mit ps-ui). Keine fremden Spiele wie DOOM oder Pac-Man, die in der
+      Standardliste von `rcore_arcade` und `mtc-arcade` stehen. Allein spielbar
+- [ ] **Gym:** Trainingsgeräte an Muscle Beach per `ox_target`, Animation mit `lib.progressBar`, Wirkung nach
+      [Fähigkeiten](#fähigkeiten). Vorlage: `dynyx-gym` (GPL-3.0). Allein spielbar
+- [ ] **Fallschirmsprung:** Start per Teleport in die Höhe oder im NPC-Flugzeug, Fallschirm ausgeben, Landezone mit
+      Punkten nach Abstand zur Mitte. Allein spielbar
+- [ ] **Paintball:** eigene Ressource `[local]/paintball`: Arena als Zone (`lib.zones`) oder Innenraum in eigenem
+      Routing-Bucket, Lobby per `ox_target`, Leih-Ausrüstung statt des eigenen Inventars, wenig Schaden, Treffer und
+      Punkte zählt der Server, danach zurück mit der alten Ausrüstung. Optional NPC-Gegner für kleine Runden. Keine
+      nachgebauten Maps aus anderen Spielen
+- [ ] **Demolition Derby:** Arena-War-Arena per `RequestIpl` (2800, -3750, 125, nicht in `bob74_ipl`), eigene Ressource
+      mit Runden und Wertung. Spieler beim Laden kurz einfrieren, sonst fallen sie durch die Bahn. Braucht Mitspieler
+- [ ] **Casino:** Diamond Casino, lädt `bob74_ipl` schon: einfache eigene Spiele wie Blackjack oder Roulette über
+      `ox_lib`-Menüs, nur mit Spielgeld, nie gegen Echtgeld. Allein spielbar
+- [ ] **Darts:** einfache eigene Version mit `lib.skillCheck` an der Dartscheibe im Yellow Jack. Vorlage: `rz-dart`
+      (GPL-3.0). Allein spielbar
+- [ ] **Musik im Club:** nur eigene oder frei lizenzierte Musikdateien, z. B. über `xsound` (MIT). DJ- und
+      Karaoke-Skripte mit YouTube oder Links scheiden aus (PLA 2.4)
+- [ ] **Tauchen** ist schon installiert (`qbx_diving`), Angeln und Jagen stehen unter [Solo-Aktivitäten](#solo-aktivitäten)
+- [ ] Im Spiel prüfen, ob die GTA-eigenen Minispiele (Golf, Tennis, Darts) in FiveM laufen. Offiziell belegt ist es
+      nicht, alles spricht dagegen
+
+**Kostenlos nicht möglich:** Bowling, Billard, Tischtennis, Minigolf und Prop Hunt. Dafür gibt es keine brauchbaren
+freien Skripte, ein Eigenbau wäre sehr aufwendig (Ballphysik, bei Prop Hunt Runden- und Versteck-Logik). Golf ginge nur
+als großer Eigenbau, das kostenlose `alberttheprince/FiveM-Golf` hat keine Lizenz und taugt nur als Ideenvorlage.
 
 ---
 
@@ -568,7 +635,7 @@ Nur Lore-Marken und eigene Designs, keine echten Fahrzeuge oder Marken, auch nic
 | 1 | Wie viele Spieler sind realistisch gleichzeitig online, und wer spielt Polizei und Rettungsdienst? | Überfälle brauchen Gegenspieler, Schwellen in Phase 6 | Niedrige Polizei-Schwellen; fehlende Rollen übernehmen NPCs ([Leitstelle](#leitstelle-und-npc-dienste), Grundsatz entschieden 13.09.2026) |
 | 2 | ~~Wie viel Kriminalität soll es geben?~~ | | **Entschieden 13.09.2026:** Berufe und Kriminalität von Anfang an, siehe Phase 6 |
 | 3 | Wirtschaft locker oder hart? | Startgeld, Gehälter, Preise, Kosten für Autos und Wohnungen | Eher hart, damit Jobs Sinn haben; Werte nach 2 Wochen Spielzeit nachjustieren |
-| 4 | Bezahlte Ressourcen (Tebex) ja oder nein, Budget? | Viele Innenräume und gute Jobs sind kostenpflichtig; Escrow bindet an einen Account | Zunächst nein, Lücken mit eigenen Ressourcen füllen |
+| 4 | Bezahlte Ressourcen (Tebex) ja oder nein, Budget? | Viele Innenräume und gute Jobs sind kostenpflichtig; Escrow bindet an einen Account | Zunächst nein, Lücken mit eigenen Ressourcen füllen. **Minispiele entschieden 13.09.2026:** nur kostenlos ([Phase 9](#phase-9-freizeit-und-minispiele)) |
 | 5 | Wohin mit großen Assets (Weg E)? | Muss stehen, bevor Fahrzeuge oder Innenräume kommen | `rsync` nach `[vendor]` plus committete Paketliste |
 | 6 | Handy bei npwd bleiben? | Wechsel später kostet Daten und Apps | Bleiben (aktiv gepflegt, letzter Push August 2026) |
 | 7 | Projektname und Discord? | Pflicht-Hinweis, Logo, Allowlist-Ablauf | Name vor Phase 3 festlegen |
@@ -598,3 +665,9 @@ Geprüft am 13.09.2026 im Quellcode bzw. über die GitHub-API:
   `qbx_pawnshop`, `qbx_police`, `qbx_vehiclekeys`, `qbx_management` (README), `qbx_smallresources`
   (`qbx_disableservices`); `markedbills` gesucht in Rezept-`items.lua`, qbx_core v1.24.0 und dem aktuellen
   ox_inventory-Release
+- Freizeit, Villen und Autohäuser (13.09.2026): `bob74_ipl` `client.lua` (geladene Innenräume, Build-Sperren),
+  `qbx_properties` `config/shared.lua`, `qbx_vehicleshop` `config/shared.lua` (`luxury` auskommentiert,
+  `vehicles.models`), `qbx_core` v1.24.0 `shared/vehicles.lua` (901 Einträge), `qbx_lapraces` `config.lua` und
+  Events, `scully_emotemenu` (`fxmanifest.lua`, `prop_emotes.lua`, `stream/[Props]/[BzZzi]`), Lizenzen und letzte
+  Commits von `cw-racingapp`, `thommie-arcade`, `rz-dart`, `dynyx-gym`, `davedumas0/fiveM-movies`,
+  `Xogy/rcore_arcade`, `morethancodenl/mtc-arcade`, `alberttheprince/FiveM-Golf` und dem Vinewood House MLO
