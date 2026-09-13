@@ -130,7 +130,7 @@ Notiert von Luca beim ersten Einloggen, Ursachen noch nicht untersucht.
 | 1 | Einstieg | Nach dem Verbinden gibt es keine Anleitung. | Neue Spieler bekommen zuerst eine Einführung, in der alles verständlich erklärt ist (siehe Phase 3). |
 | 2 | Charakter | Die Charakterauswahl funktioniert, wirkt aber unstrukturiert. | Übersichtlicher Ablauf bei Auswahl und Erstellung. |
 | 3 | Apartment | Spawn-Ort und Apartment lassen sich auswählen, danach zeigt die Karte aber viele Apartments als eigenes Eigentum an. | Nur ein Apartment wählbar, und nur dieses gehört dem Spieler. |
-| 4 | Apartment | Beim Verlassen des Gebäudes landet man im Aufzug und muss mehrmals rein und raus, bis man draußen ist. | Ein Ausgang, der direkt nach draußen führt. |
+| 4 | Apartment | Beim Verlassen des Gebäudes landet man im Aufzug und muss mehrmals rein und raus, bis man draußen ist. Im Aufzug gibt es keine Möglichkeit auszuwählen, wohin man fahren will. | Ein Ausgang, der direkt nach draußen führt. Wo ein Aufzug zu sehen ist, lässt sich das Ziel auswählen (z. B. Wohnung, Eingang, Garage). |
 | 5 | Waffenladen | Im Ammu-Nation steht kein NPC, bei dem man eine Waffe kaufen kann. | Verkäufer bzw. Shop-Punkt vorhanden, Kauf möglich. |
 | 6 | Bedienung | Beim Parken steht der Hinweis "E - Garage öffnen" klein am rechten Bildschirmrand und fällt nicht auf. | Bei allen Interaktionen ist der Hinweis sofort sichtbar, z. B. unten mittig und deutlicher hervorgehoben. |
 | 7 | Fahrzeughändler | Nach der Probefahrt beim Premium Deluxe Motorsport liegt der Charakter tot vor dem Eingang. | Nach der Probefahrt steht man unverletzt am Händler, das Testfahrzeug ist weg. |
@@ -140,6 +140,7 @@ Notiert von Luca beim ersten Einloggen, Ursachen noch nicht untersucht.
 | 11 | Geld | Alle 10 Minuten kommt Gehalt, obwohl man nichts macht und keinen Beruf gewählt hat. Unklar, wofür. | Klar erkennbar, wofür Geld kommt. **Entscheidung**, ob es ein Grundeinkommen ohne Job gibt. |
 | 12 | Fahrzeughändler | Die Restzeit der Probefahrt steht nur in Sekunden da ("Verbleibende Zeit der Probefahrt:293"), ohne Leerzeichen, mitten über dem Auto. | Anzeige als Minuten und Sekunden (4:53), gut lesbar am Bildschirmrand. |
 | 13 | Rettungsdienst | Am Boden steht nur "Du blutest aus in: 27 Sekunden", man kann nichts tun und keinen Notruf absetzen. | Am Boden lässt sich jederzeit ein Notruf absetzen, gut sichtbar mit Taste, und er erreicht auch jemanden. |
+| 14 | Charakter | In der Charaktererstellung lässt sich unter "Ped" ein Tiermodell wählen (z. B. `a_c_cat_01`). Danach ist keine Figur im Bild, rechts steht weiter "mp_m_freemode_01", unter "Aussehen" gibt es nur noch "Haare", und fast alle Kleidungsteile zeigen "0 / -1" (bei "Ketten" sogar "-1 / -1"). | Andere Modelle, auch Tiere, funktionieren: Die Figur ist im Bild, die Anzeige stimmt, das Menü zeigt nur Kategorien mit echter Auswahl, und der Charakter lässt sich speichern und normal spielen. |
 
 - [ ] Befunde 3 bis 5 untersuchen (Ursache in `qbx_properties`, `qbx_spawn` bzw. den Shops von `ox_inventory`)
   - Befund 3: In der Datenbank gehört dem Charakter nur ein Apartment. `qbx_properties`
@@ -147,6 +148,18 @@ Notiert von Luca beim ersten Einloggen, Ursachen noch nicht untersucht.
     Änderung nur im Code möglich, das Repo hat keine Releases: Fork nötig (Weg C).
   - Befund 4: Apartment `4IntegrityWayApt30`, der Ausgang setzt den Spieler auf den Eingangspunkt
     `-47.52, -585.86, 37.95` aus `config/shared.lua`. Ob dieser Punkt im Aufzug liegt, im Spiel prüfen.
+    `qbx_properties` hat **keine Aufzug-Steuerung**, die Knöpfe im Aufzug sind Deko aus GTA. Es gibt nur feste
+    Punkte mit kleinem 3D-Text (`qbx.drawText3d`): draußen "[E] - Objekt anzeigen" im Umkreis von 1,6 m um den
+    Eingang, drinnen "[E] - Verlassen | [G] - Verwalten" im Umkreis von 1,5 m um `exit` (bei Apt30
+    `-17.41, -588.17, 90.11`). Wer daneben steht, sieht keine Auswahl. Beim Anlegen kopiert
+    `server/apartmentselect.lua` Eingang (`enter`) und Innenpunkte als JSON in die Tabelle `properties`
+    (`coords`, `interact_options`), und `exitProperty` liest den Eingang von dort. Eine geänderte Config gilt
+    also nur für neue Apartments, bestehende brauchen eine SQL-Datei über `database.txt`.
+    Mögliche Lösung: Eingangspunkt vor das Gebäude legen (Fork, Weg C) und bestehende Einträge per SQL
+    nachziehen. Eine echte Zielauswahl im Aufzug (Wohnung, Eingang, Garage) wäre eine eigene Ressource mit
+    `ox_target`-Zone und `lib.registerContext` (Weg D).
+    - [ ] Im Spiel prüfen: In welchem Aufzug stehst du (nach dem Verlassen oder direkt nach dem Spawn),
+          erscheint dort irgendein Text, und wie kommst du am Ende heraus? Koordinaten über das Admin-Menü (`/admin`) notieren.
   - [x] Befund 5: Der Ammunation hatte nur eine unsichtbare Zielzone an der Theke (linke Alt-Taste). Eigene
     `shops.lua` mit Verkäufern (Weg B), im Spiel testen. Pistole braucht den Waffenschein (`licences.weapon`).
 - [ ] Logs vom 13.09.2026 auswerten (Server: `txData/default/logs/fxserver.log`, Client:
@@ -234,6 +247,26 @@ Notiert von Luca beim ersten Einloggen, Ursachen noch nicht untersucht.
   - Dabei gefunden: "Motor an/aus" (`qbx_vehiclekeys`) hat keine Standard-Taste, weil `config.keySearchBind` in
     dessen Config fehlt. Die Hilfe zeigt "nicht belegt". Taste festlegen (Weg C) oder Spielern den Weg über
     Einstellungen > Tastenbelegung > FiveM erklären.
+- [ ] Befund 14 beheben. Stand der Untersuchung im Code von illenium-appearance (zip, `releases/latest`):
+  - Die Auswahl "Ped" ist in der Erstellung für **alle** Spieler an (`Config.NewCharacterSections.Ped = true` in
+    `shared/config.lua`), und `shared/peds.lua` hat keine Einschränkung (`jobs`, `gangs`, `aces`, `citizenids`):
+    Jeder neue Spieler kann jedes der rund 800 Modelle wählen, Tiere und Story-Figuren eingeschlossen. Das
+    Ped-Menü `/pedmenu` ist dagegen auf `group.admin` begrenzt (`Config.PedMenuGroup`).
+  - "0 / -1" ist kein Anzeigefehler: Die Grenzen kommen direkt aus `GetNumberOfPedDrawableVariations(...) - 1`
+    (`game/customization.lua`). Tiermodelle haben diese Kleidungsplätze nicht, das Menü blendet sie aber nur für
+    Gesicht und Kopf aus (Prüfung auf `mp_m_freemode_01`/`mp_f_freemode_01` im Web-Code), Kleidung und Accessoires
+    bleiben sichtbar.
+  - Die Kamera nutzt feste Abstände für einen Menschen (`constants.CAMERAS` in `game/constants.lua`, z. B. 2,2 m
+    vor und 0,2 m über dem Mittelpunkt der Figur). Bei kleinen Tieren passt der Bildausschnitt nicht, im Spiel
+    prüfen, ob die Katze nur außerhalb des Bildes oder hinter dem Menü steht.
+  - Woher die Anzeige "mp_m_freemode_01" rechts neben "Model" kommt, ist offen (Standardwert im Web-Code oder
+    Wert vor dem Wechsel).
+  - Außerhalb des Menüs im Spiel testen, bevor Tiere für Spieler freigegeben werden: Speichern und erneutes
+    Einloggen, Laufen, Fahrzeuge, Inventar, `ox_target`, Emotes, Waffen, Tod und Wiederbelebung (`qbx_medical`).
+    Viele dieser Funktionen erwarten ein menschliches Modell.
+  - Umsetzung über Weg B (Override von `shared/config.lua`, `shared/peds.lua` bzw. `game/constants.lua` und
+    `game/customization.lua`), das Menü selbst liegt nur als gebautes `web/dist` vor. Wer welche Modelle wählen
+    darf: **Entscheidung** 15.
 - [ ] Befunde 1 und 2 bei der Planung von Phase 3 berücksichtigen
 
 ## Phase 2: Entscheiden und aufräumen
@@ -546,6 +579,7 @@ Nur Lore-Marken und eigene Designs, keine echten Fahrzeuge oder Marken, auch nic
 | 12 | NPC-Polizei über GTA-Fahndung oder eigene Streifen? | GTA-Fahndung ist schnell gebaut, passt aber schlecht zu Gefängnis und Bußgeld | Erst GTA-Fahndung nur nach Alarmen testen, eigene Streifen, wenn es stört |
 | 13 | Militär nur als NPC-Sperrgebiet oder auch als Spieler-Job? | Aufwand, wenig Einsätze in kleiner Runde | Erst NPC-Sperrgebiet Fort Zancudo |
 | 14 | Was kosten NPC-Dienste? | Zu billig macht Spieler-Jobs sinnlos, zu teuer frustriert | Deutlich teurer als ein Spieler im Dienst, Werte mit Entscheidung 3 |
+| 15 | Wer darf Tier- und NPC-Modelle als Charakter wählen (Befund 14)? | Heute jeder bei der Erstellung; Tiere können vieles im Spiel nicht (Fahrzeuge, Inventar, Waffen) | In der Erstellung nur die beiden Freemode-Modelle, Tiere und NPC-Figuren über `/pedmenu` bzw. freigegebene Gruppen in `peds.lua`, sobald sie im Spiel funktionieren |
 
 ## Quellen der technischen Angaben
 
