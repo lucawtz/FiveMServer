@@ -32,6 +32,11 @@ fx.tar.xz
 # Eckige Klammern sind in .gitignore Zeichenklassen, deshalb escaped.
 /server-data/resources/\[cfx-default\]/
 /server-data/resources/\[vendor\]/
+# Assets aus dem Cfx Marketplace sind an den Cfx.re-Account gebunden und werden
+# nicht weitergegeben. Nur die README und eigene Dateien in .anpassungen/ kommen ins Repo.
+/server-data/resources/\[marketplace\]/*
+!/server-data/resources/\[marketplace\]/README.md
+!/server-data/resources/\[marketplace\]/.anpassungen/
 
 # --- Laufzeit-Dateien von FXServer -------------------------------------------
 /server-data/cache/
